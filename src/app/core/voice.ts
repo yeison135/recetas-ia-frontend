@@ -34,9 +34,11 @@ const NO_DICTATION =
 /** Mensaje para cada error de la Web Speech API; null si no hay que avisar (silencio, cancelado). */
 export function webSpeechError(error: string): string | null {
   switch (error) {
-    case 'no-speech':
     case 'aborted':
       return null;
+    case 'no-speech':
+      // Edge/Chrome escuchan el micrófono predeterminado del sistema: si está silenciado o es otro, llega aquí.
+      return 'No te escuché. Revisa que el micrófono predeterminado de tu equipo esté activo y habla cerca de él.';
     case 'not-allowed':
       return 'Necesito permiso para usar el micrófono. Revisa el ícono del candado en la barra de direcciones.';
     case 'audio-capture':
@@ -79,8 +81,23 @@ export class VoiceService {
     if (IS_NATIVE) {
       void this.listenNative(onFinal, onError);
     } else {
-      this.listenWeb(onFinal, onError);
+      void this.listenWebChecked(onFinal, onError);
     }
+  }
+
+  /** Antes del dictado web se comprueba que haya micrófono y permiso, para dar un error claro. */
+  private async listenWebChecked(onFinal: (text: string) => void, onError?: (message: string) => void): Promise<void> {
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch (e) {
+        const name = e instanceof DOMException ? e.name : '';
+        onError?.(webSpeechError(name === 'NotFoundError' ? 'audio-capture' : 'not-allowed') ?? '');
+        return;
+      }
+    }
+    this.listenWeb(onFinal, onError);
   }
 
   stopListening(): void {

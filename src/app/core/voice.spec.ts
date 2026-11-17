@@ -1,9 +1,12 @@
 import { webSpeechError } from './voice';
 
 describe('webSpeechError', () => {
-  it('no avisa cuando no se dijo nada o se canceló', () => {
-    expect(webSpeechError('no-speech')).toBeNull();
+  it('no avisa cuando se canceló', () => {
     expect(webSpeechError('aborted')).toBeNull();
+  });
+
+  it('avisa cuando no detectó voz (antes fallaba en silencio)', () => {
+    expect(webSpeechError('no-speech')).toContain('micrófono');
   });
 
   it('explica la causa real en vez de un error genérico', () => {
