@@ -1,0 +1,118 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+import { API_BASE } from './config';
+import {
+  Allergy,
+  Consent,
+  Conversation,
+  CookingTimer,
+  Preference,
+  Profile,
+  RecipeDetail,
+  RecipeSummary,
+  ShoppingList,
+  Store,
+  StoredMessage,
+} from './models';
+
+@Injectable({ providedIn: 'root' })
+export class Api {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${API_BASE}/api`;
+
+  // Recetas
+  searchRecipes(q: string, region?: string, maxMinutes?: number, page = 0): Observable<RecipeSummary[]> {
+    let params = new HttpParams().set('page', page);
+    if (q) params = params.set('q', q);
+    if (region) params = params.set('region', region);
+    if (maxMinutes) params = params.set('maxMinutes', maxMinutes);
+    return this.http.get<RecipeSummary[]>(`${this.base}/recipes`, { params });
+  }
+  regions(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/recipes/regions`);
+  }
+  recipe(slug: string, servings?: number): Observable<RecipeDetail> {
+    const params = servings ? new HttpParams().set('servings', servings) : undefined;
+    return this.http.get<RecipeDetail>(`${this.base}/recipes/${encodeURIComponent(slug)}`, { params });
+  }
+
+  // Perfil y memoria
+  profile(): Observable<Profile> {
+    return this.http.get<Profile>(`${this.base}/me/profile`);
+  }
+  updateProfile(p: Profile): Observable<Profile> {
+    return this.http.put<Profile>(`${this.base}/me/profile`, p);
+  }
+  consents(): Observable<Consent[]> {
+    return this.http.get<Consent[]>(`${this.base}/me/consents`);
+  }
+  grantConsent(purpose: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/me/consents/${purpose}`, null);
+  }
+  revokeConsent(purpose: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/consents/${purpose}`);
+  }
+  allergies(): Observable<Allergy[]> {
+    return this.http.get<Allergy[]>(`${this.base}/me/allergies`);
+  }
+  addAllergy(allergen: string, severity: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/me/allergies`, { allergen, severity });
+  }
+  deleteAllergy(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/allergies/${id}`);
+  }
+  preferences(): Observable<Preference[]> {
+    return this.http.get<Preference[]>(`${this.base}/me/preferences`);
+  }
+  deletePreference(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/preferences/${id}`);
+  }
+  exportData(): Observable<unknown> {
+    return this.http.get<unknown>(`${this.base}/me/export`);
+  }
+  deleteAccount(): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me`);
+  }
+
+  // Temporizadores
+  timers(): Observable<CookingTimer[]> {
+    return this.http.get<CookingTimer[]>(`${this.base}/timers`);
+  }
+  startTimer(label: string, seconds: number): Observable<CookingTimer> {
+    return this.http.post<CookingTimer>(`${this.base}/timers`, { label, seconds });
+  }
+  cancelTimer(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/timers/${id}`);
+  }
+
+  // Mercado
+  shoppingLists(): Observable<ShoppingList[]> {
+    return this.http.get<ShoppingList[]>(`${this.base}/shopping-lists`);
+  }
+  createShoppingList(slugs: string[], servings?: number): Observable<ShoppingList> {
+    return this.http.post<ShoppingList>(`${this.base}/shopping-lists`, { slugs, servings });
+  }
+  checkItem(listId: string, itemId: string, checked: boolean): Observable<void> {
+    return this.http.patch<void>(`${this.base}/shopping-lists/${listId}/items/${itemId}`, { checked });
+  }
+  deleteShoppingList(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/shopping-lists/${id}`);
+  }
+  stores(city?: string): Observable<Store[]> {
+    const params = city ? new HttpParams().set('city', city) : undefined;
+    return this.http.get<Store[]>(`${this.base}/stores`, { params });
+  }
+
+  // Conversaciones
+  createConversation(channel: 'TEXT' | 'VOICE' = 'TEXT'): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/chat/conversations`, { channel });
+  }
+  conversations(): Observable<Conversation[]> {
+    return this.http.get<Conversation[]>(`${this.base}/chat/conversations`);
+  }
+  messages(conversationId: string): Observable<StoredMessage[]> {
+    return this.http.get<StoredMessage[]>(`${this.base}/chat/conversations/${conversationId}/messages`);
+  }
+}
