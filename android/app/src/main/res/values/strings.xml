@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">La Sazón</string>
+    <string name="title_activity_main">La Sazón</string>
+    <string name="package_name">co.cocina.lasazon</string>
+    <string name="custom_url_scheme">co.cocina.lasazon</string>
+</resources>

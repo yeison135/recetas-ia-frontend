@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from './api';
+import { IS_NATIVE } from './config';
 import { CookingTimer } from './models';
 
 export interface TimerView extends CookingTimer {
@@ -45,6 +46,7 @@ export class TimerStore {
   add(t: CookingTimer): void {
     requestNotificationPermission();
     this.timers.update((list) => [...list.filter((x) => x.id !== t.id), t]);
+    void scheduleNative(t);
   }
 
   async start(label: string, seconds: number): Promise<void> {
@@ -55,6 +57,7 @@ export class TimerStore {
     const t = this.timers().find((x) => x.id === id);
     this.timers.update((list) => list.filter((x) => x.id !== id));
     if (t && Date.parse(t.endsAt) > Date.now()) {
+      void cancelNative(t);
       await firstValueFrom(this.api.cancelTimer(id)).catch(() => undefined);
     }
   }
@@ -68,7 +71,30 @@ export function formatSeconds(total: number): string {
   return `${h ? h + ':' : ''}${mm}:${String(s).padStart(2, '0')}`;
 }
 
+/** Id numérico estable para la notificación nativa a partir del uuid del temporizador. */
+function nativeId(t: CookingTimer): number {
+  return parseInt(t.id.replace(/-/g, '').slice(0, 7), 16);
+}
+
+/** En la app nativa la alarma la programa el sistema: suena aunque la app esté cerrada o en segundo plano. */
+async function scheduleNative(t: CookingTimer): Promise<void> {
+  if (!IS_NATIVE || Date.parse(t.endsAt) <= Date.now()) return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  const perm = await LocalNotifications.requestPermissions();
+  if (perm.display !== 'granted') return;
+  await LocalNotifications.schedule({
+    notifications: [{ id: nativeId(t), title: '¡Listo el temporizador!', body: t.label, schedule: { at: new Date(t.endsAt), allowWhileIdle: true } }],
+  });
+}
+
+async function cancelNative(t: CookingTimer): Promise<void> {
+  if (!IS_NATIVE) return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: nativeId(t) }] });
+}
+
 function requestNotificationPermission(): void {
+  if (IS_NATIVE) return;
   if ('Notification' in window && Notification.permission === 'default') {
     void Notification.requestPermission();
   }
