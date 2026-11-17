@@ -210,8 +210,8 @@ export class Chat implements OnInit, OnDestroy {
       const consents = await firstValueFrom(this.api.consents());
       if (consents.some((c) => c.purpose === 'VOICE')) return true;
       const ok = confirm(
-        'Para hablarle a La Sazón, tu navegador convierte tu voz en texto con su propio servicio ' +
-          '(en Chrome, de Google). Solo se envía lo que dices mientras el micrófono está activo. ¿Autorizas el uso de tu voz?',
+        'Para hablarle a La Sazón, tu navegador o tu teléfono convierte tu voz en texto con su propio servicio ' +
+          '(normalmente de Google). Solo se envía lo que dices mientras el micrófono está activo. ¿Autorizas el uso de tu voz?',
       );
       if (!ok) return false;
       await firstValueFrom(this.api.grantConsent('VOICE'));
