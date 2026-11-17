@@ -157,8 +157,9 @@ export class ProfilePage implements OnInit {
 
   protected async grantHealth(): Promise<void> {
     await firstValueFrom(this.api.grantConsent('HEALTH_DATA'));
-    this.consents.set(await firstValueFrom(this.api.consents()));
+    // Primero las alergias, luego el consentimiento: así el formulario aparece ya con su valor inicial.
     await this.loadAllergies();
+    this.consents.set(await firstValueFrom(this.api.consents()));
   }
 
   protected async revokeHealth(): Promise<void> {

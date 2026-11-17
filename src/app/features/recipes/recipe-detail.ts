@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { COST_LABEL, DIFFICULTY_LABEL, Ingredient, RecipeDetail } from '../../core/models';
+import { kitchenQuantity } from '../../core/format';
 import { TimerStore, formatSeconds } from '../../core/timers';
 import { VoiceService } from '../../core/voice';
 
@@ -141,9 +142,7 @@ export class RecipeDetailPage implements OnInit {
   }
 
   protected quantity(i: Ingredient): string {
-    if (i.quantity === null || i.unit === 'al gusto') return 'al gusto';
-    const q = Number.isInteger(i.quantity) ? i.quantity : Math.round(i.quantity * 100) / 100;
-    return `${q} ${i.unit}`;
+    return kitchenQuantity(i.quantity, i.unit);
   }
 
   protected changeServings(delta: number): void {

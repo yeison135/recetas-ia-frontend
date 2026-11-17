@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
+import { kitchenQuantity } from '../../core/format';
 import { ShoppingItem, ShoppingList, Store } from '../../core/models';
 
 @Component({
@@ -98,9 +99,7 @@ export class Shopping implements OnInit {
   }
 
   protected qty(i: ShoppingItem): string {
-    if (i.quantity === null) return '';
-    const q = Number.isInteger(i.quantity) ? i.quantity : Math.round(i.quantity * 100) / 100;
-    return `${q} ${i.unit ?? ''}`.trim();
+    return i.quantity === null ? '' : kitchenQuantity(i.quantity, i.unit);
   }
 
   protected async toggle(l: ShoppingList, i: ShoppingItem): Promise<void> {

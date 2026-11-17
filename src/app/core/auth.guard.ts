@@ -5,9 +5,11 @@ import { AuthService } from './auth';
 
 /** Deja pasar si hay sesión o si se puede recuperar con el refresh token. */
 export const authGuard: CanActivateFn = async () => {
+  // inject() solo funciona antes del primer await.
   const auth = inject(AuthService);
+  const router = inject(Router);
   if (auth.isLoggedIn() || (await auth.refresh())) {
     return true;
   }
-  return inject(Router).parseUrl('/entrar');
+  return router.parseUrl('/entrar');
 };

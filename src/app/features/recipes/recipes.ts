@@ -73,6 +73,8 @@ export class Recipes implements OnInit {
   protected readonly error = signal('');
   protected readonly difficulty = DIFFICULTY_LABEL;
   protected readonly cost = COST_LABEL;
+  /** Solo se pinta la respuesta de la búsqueda más reciente. */
+  private seq = 0;
 
   ngOnInit(): void {
     void firstValueFrom(this.api.regions()).then((r) => this.regions.set(r)).catch(() => undefined);
@@ -80,14 +82,16 @@ export class Recipes implements OnInit {
   }
 
   async search(): Promise<void> {
+    const mine = ++this.seq;
     this.loading.set(true);
     this.error.set('');
     try {
-      this.items.set(await firstValueFrom(this.api.searchRecipes(this.q.trim(), this.region, this.maxMinutes)));
+      const found = await firstValueFrom(this.api.searchRecipes(this.q.trim(), this.region, this.maxMinutes));
+      if (mine === this.seq) this.items.set(found);
     } catch {
-      this.error.set('No pude cargar las recetas.');
+      if (mine === this.seq) this.error.set('No pude cargar las recetas.');
     } finally {
-      this.loading.set(false);
+      if (mine === this.seq) this.loading.set(false);
     }
   }
 }
