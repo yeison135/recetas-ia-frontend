@@ -24,6 +24,34 @@ interface SpeechRecognitionLike {
 
 const LANG = 'es-CO';
 
+/** Brave expone la Web Speech API pero bloquea el servicio de reconocimiento de Google. */
+const IS_BRAVE = typeof navigator !== 'undefined' && 'brave' in navigator;
+
+const NO_DICTATION =
+  'Tu navegador no permite el dictado por voz. Prueba en Chrome o Edge, o escribe tu pregunta. ' +
+  'La lectura en voz alta de las respuestas sí funciona.';
+
+/** Mensaje para cada error de la Web Speech API; null si no hay que avisar (silencio, cancelado). */
+export function webSpeechError(error: string): string | null {
+  switch (error) {
+    case 'no-speech':
+    case 'aborted':
+      return null;
+    case 'not-allowed':
+      return 'Necesito permiso para usar el micrófono. Revisa el ícono del candado en la barra de direcciones.';
+    case 'audio-capture':
+      return 'No encontré un micrófono conectado.';
+    case 'network':
+    case 'service-not-allowed':
+      // En Brave el servicio de Google está bloqueado y falla con 'network' aunque haya internet.
+      return IS_BRAVE ? NO_DICTATION : 'No pude conectar con el servicio de voz. Revisa tu conexión o escribe tu pregunta.';
+    case 'language-not-supported':
+      return 'Tu navegador no reconoce voz en español de Colombia.';
+    default:
+      return 'No te escuché bien, intenta otra vez.';
+  }
+}
+
 /**
  * Voz del dispositivo (decisión provisional, ver DECISIONES.md):
  * - Web: Web Speech API del navegador (dictado y lectura en voz alta).
@@ -160,8 +188,8 @@ export class VoiceService {
       this.interim.set(interim || finalText);
     };
     rec.onerror = (e) => {
-      if (e.error === 'not-allowed') onError?.('Necesito permiso para usar el micrófono.');
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') onError?.('No te escuché bien, intenta otra vez.');
+      const message = webSpeechError(e.error);
+      if (message) onError?.(message);
     };
     rec.onend = () => {
       this.listening.set(false);
