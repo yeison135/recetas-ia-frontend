@@ -96,6 +96,20 @@ import { VoiceService } from '../../core/voice';
             </ol>
           }
         </section>
+        <section class="card stack cooked">
+          @if (!cooked()) {
+            <h2>¿Ya la cocinaste?</h2>
+            <p class="muted small">Cuéntale a La Sazón qué tal te quedó: así no te repite platos y te recomienda mejor.</p>
+            <div class="row stars" role="group" aria-label="Calificación">
+              @for (n of [1, 2, 3, 4, 5]; track n) {
+                <button type="button" class="star" [class.on]="n <= rating()" (click)="rating.set(n)" [attr.aria-label]="n + ' de 5'">★</button>
+              }
+            </div>
+            <button type="button" class="btn" (click)="markCooked()">¡Lo cociné!</button>
+          } @else {
+            <p>¡Qué rico! Quedó en tu historial. 🎉</p>
+          }
+        </section>
         @if (message()) { <p class="notice" role="status">{{ message() }}</p> }
       }
     </div>
@@ -114,6 +128,10 @@ import { VoiceService } from '../../core/voice';
     .steps li p { margin: 0 0 6px; }
     .cook .big { font-size: 1.35rem; line-height: 1.45; }
     .cook .nav { justify-content: space-between; margin-top: 12px; }
+    .cooked h2 { margin: 0; }
+    .cooked p { margin: 0; }
+    .star { border: 0; background: transparent; font-size: 2rem; line-height: 1; color: var(--line); cursor: pointer; padding: 4px; }
+    .star.on { color: #e0a100; }
   `,
 })
 export class RecipeDetailPage implements OnInit {
@@ -131,6 +149,8 @@ export class RecipeDetailPage implements OnInit {
   protected readonly busy = signal(false);
   protected readonly cookMode = signal(false);
   protected readonly current = signal(0);
+  protected readonly rating = signal(0);
+  protected readonly cooked = signal(false);
   protected readonly difficulty = DIFFICULTY_LABEL;
   protected readonly cost = COST_LABEL;
   protected readonly format = formatSeconds;
@@ -164,6 +184,17 @@ export class RecipeDetailPage implements OnInit {
       this.message.set(`Temporizador de ${formatSeconds(seconds)} en marcha.`);
     } catch {
       this.message.set('No pude iniciar el temporizador.');
+    }
+  }
+
+  protected async markCooked(): Promise<void> {
+    const r = this.recipe();
+    if (!r) return;
+    try {
+      await firstValueFrom(this.api.markCooked(r.slug, r.servings, this.rating() || undefined));
+      this.cooked.set(true);
+    } catch {
+      this.message.set('No pude guardarlo en tu historial.');
     }
   }
 

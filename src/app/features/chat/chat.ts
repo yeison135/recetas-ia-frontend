@@ -1,9 +1,11 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
+import { AuthService } from '../../core/auth';
+import { LOCAL_KEYS, isUuid } from '../../core/config';
 import { ChatStream, ChatStreamEvent } from '../../core/chat-stream';
 import { CookingTimer, ShoppingList } from '../../core/models';
 import { TimerStore, formatSeconds } from '../../core/timers';
@@ -19,7 +21,7 @@ interface Bubble {
   error?: boolean;
 }
 
-const CONVERSATION_KEY = 'sazon.conversation';
+const CONVERSATION_KEY = LOCAL_KEYS.conversation;
 
 @Component({
   selector: 'app-chat',
@@ -114,8 +116,12 @@ const CONVERSATION_KEY = 'sazon.conversation';
     .toggle input { width: auto; min-height: auto; }
   `,
 })
-export class Chat implements OnInit {
+export class Chat implements OnInit, OnDestroy {
   private readonly api = inject(Api);
+  private readonly auth = inject(AuthService);
+  /** Cancela la respuesta en curso al salir de la pantalla, empezar otra conversación o cerrar sesión. */
+  private inFlight: AbortController | null = null;
+  private readonly logoutSub = this.auth.loggedOut.subscribe(() => this.stop());
   private readonly stream = inject(ChatStream);
   private readonly timers = inject(TimerStore);
   protected readonly voice = inject(VoiceService);
@@ -148,7 +154,8 @@ export class Chat implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    this.conversationId = localStorage.getItem(CONVERSATION_KEY);
+    const saved = localStorage.getItem(CONVERSATION_KEY);
+    this.conversationId = isUuid(saved) ? saved : null;
     if (this.conversationId) {
       try {
         const history = await firstValueFrom(this.api.messages(this.conversationId));
@@ -169,11 +176,24 @@ export class Chat implements OnInit {
     }
   }
 
-  protected toggleMic(): void {
+  ngOnDestroy(): void {
+    this.stop();
+    this.logoutSub.unsubscribe();
+  }
+
+  private stop(): void {
+    this.inFlight?.abort();
+    this.inFlight = null;
+    this.voice.stopListening();
+    this.voice.stopSpeaking();
+  }
+
+  protected async toggleMic(): Promise<void> {
     if (this.voice.listening()) {
       this.voice.stopListening();
       return;
     }
+    if (!(await this.ensureVoiceConsent())) return;
     this.readAloud = true;
     this.voice.listen(
       (text) => void this.send(text),
@@ -181,8 +201,28 @@ export class Chat implements OnInit {
     );
   }
 
+  /**
+   * El dictado del navegador envía el audio al servicio de voz del navegador (en Chrome, Google).
+   * Se pide la autorización VOICE una vez, explicándolo, y queda registrada en el servidor.
+   */
+  private async ensureVoiceConsent(): Promise<boolean> {
+    try {
+      const consents = await firstValueFrom(this.api.consents());
+      if (consents.some((c) => c.purpose === 'VOICE')) return true;
+      const ok = confirm(
+        'Para hablarle a La Sazón, tu navegador convierte tu voz en texto con su propio servicio ' +
+          '(en Chrome, de Google). Solo se envía lo que dices mientras el micrófono está activo. ¿Autorizas el uso de tu voz?',
+      );
+      if (!ok) return false;
+      await firstValueFrom(this.api.grantConsent('VOICE'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   protected async newConversation(): Promise<void> {
-    this.voice.stopSpeaking();
+    this.stop();
     this.conversationId = null;
     localStorage.removeItem(CONVERSATION_KEY);
     this.bubbles.set([]);
@@ -192,15 +232,21 @@ export class Chat implements OnInit {
     const msg = text.trim();
     if (!msg || this.thinking()) return;
     this.draft = '';
+    this.timers.askPermission(); // con el gesto del usuario, por si la IA inicia un temporizador
     this.bubbles.update((b) => [...b, { role: 'user', text: msg }]);
     this.thinking.set(true);
     this.scrollDown();
+    const controller = new AbortController();
+    this.inFlight = controller;
     try {
       const id = await this.ensureConversation();
-      await this.stream.send(id, msg, (e) => this.onEvent(e));
+      await this.stream.send(id, msg, (e) => this.onEvent(e), controller.signal);
     } catch {
-      this.bubbles.update((b) => [...b, { role: 'assistant', text: 'No pude conectarme con la cocina. Revisa tu conexión.', error: true }]);
+      if (!controller.signal.aborted) {
+        this.bubbles.update((b) => [...b, { role: 'assistant', text: 'No pude conectarme con la cocina. Revisa tu conexión.', error: true }]);
+      }
     } finally {
+      if (this.inFlight === controller) this.inFlight = null;
       this.thinking.set(false);
       this.scrollDown();
     }

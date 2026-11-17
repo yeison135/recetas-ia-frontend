@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from './api';
+import { AuthService } from './auth';
 import { IS_NATIVE } from './config';
 import { CookingTimer } from './models';
 
@@ -37,6 +38,17 @@ export class TimerStore {
       }
     }, 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(id));
+    // Al cerrar sesión no deben quedar temporizadores de otra persona en pantalla.
+    inject(AuthService).loggedOut.subscribe(() => {
+      for (const t of this.timers()) void cancelNative(t);
+      this.timers.set([]);
+      this.rung.clear();
+    });
+  }
+
+  /** Pedir el permiso de notificaciones solo tras un gesto del usuario (los navegadores lo exigen). */
+  askPermission(): void {
+    requestNotificationPermission();
   }
 
   async load(): Promise<void> {
@@ -44,12 +56,12 @@ export class TimerStore {
   }
 
   add(t: CookingTimer): void {
-    requestNotificationPermission();
     this.timers.update((list) => [...list.filter((x) => x.id !== t.id), t]);
     void scheduleNative(t);
   }
 
   async start(label: string, seconds: number): Promise<void> {
+    requestNotificationPermission();
     this.add(await firstValueFrom(this.api.startTimer(label, seconds)));
   }
 
@@ -100,6 +112,22 @@ function requestNotificationPermission(): void {
   }
 }
 
+/** En Chrome para Android `new Notification` no existe: se usa el service worker si está. */
+async function notify(label: string): Promise<void> {
+  if (IS_NATIVE || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const options = { body: label, tag: 'timer-' + label };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) {
+      await reg.showNotification('¡Listo el temporizador!', options);
+      return;
+    }
+    new Notification('¡Listo el temporizador!', options);
+  } catch {
+    // Sin notificaciones: queda la alarma sonora y el aviso visual.
+  }
+}
+
 function ring(label: string): void {
   try {
     const ctx = new AudioContext();
@@ -116,8 +144,6 @@ function ring(label: string): void {
   } catch {
     // Sin audio disponible: queda la notificación y el aviso visual.
   }
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('¡Listo el temporizador!', { body: label, tag: `timer-${label}` });
-  }
+  void notify(label);
   navigator.vibrate?.([300, 150, 300]);
 }

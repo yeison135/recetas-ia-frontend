@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from './auth';
-import { API_BASE } from './config';
+import { API_BASE, isUuid } from './config';
 
 export interface ChatStreamEvent {
   type: 'tool' | 'recipe' | 'timer' | 'shopping_list' | 'text' | 'done' | 'error';
@@ -10,16 +10,21 @@ export interface ChatStreamEvent {
 
 /**
  * Envía un mensaje y lee la respuesta SSE con fetch (EventSource no permite POST ni cabeceras).
- * Si el access token venció, renueva la sesión una vez y reintenta.
+ * Si el access token venció, renueva la sesión una vez y reintenta. `signal` permite cancelarla
+ * (al salir de la pantalla o cerrar sesión): el servidor deja de llamar al LLM.
  */
 @Injectable({ providedIn: 'root' })
 export class ChatStream {
   private readonly auth = inject(AuthService);
 
-  async send(conversationId: string, text: string, onEvent: (e: ChatStreamEvent) => void): Promise<void> {
-    let res = await this.post(conversationId, text);
+  async send(conversationId: string, text: string, onEvent: (e: ChatStreamEvent) => void,
+             signal?: AbortSignal): Promise<void> {
+    if (!isUuid(conversationId)) {
+      throw new Error('Conversación inválida');
+    }
+    let res = await this.post(conversationId, text, signal);
     if (res.status === 401 && (await this.auth.refresh())) {
-      res = await this.post(conversationId, text);
+      res = await this.post(conversationId, text, signal);
     }
     if (!res.ok || !res.body) {
       onEvent({ type: 'error', data: { message: await errorMessage(res) } });
@@ -41,8 +46,8 @@ export class ChatStream {
     }
   }
 
-  private post(conversationId: string, text: string): Promise<Response> {
-    return fetch(`${API_BASE}/api/chat/conversations/${conversationId}/messages`, {
+  private post(conversationId: string, text: string, signal?: AbortSignal): Promise<Response> {
+    return fetch(`${API_BASE}/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,11 +55,12 @@ export class ChatStream {
         Authorization: `Bearer ${this.auth.accessToken() ?? ''}`,
       },
       body: JSON.stringify({ text }),
+      signal,
     });
   }
 }
 
-function parseEvent(raw: string): ChatStreamEvent | null {
+export function parseEvent(raw: string): ChatStreamEvent | null {
   let type = 'message';
   const data: string[] = [];
   for (const line of raw.split('\n')) {

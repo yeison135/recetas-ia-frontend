@@ -120,6 +120,14 @@ export interface StoredMessage {
   createdAt: string;
 }
 
+export interface CookedEntry {
+  slug: string;
+  title: string;
+  cookedAt: string;
+  servings: number | null;
+  rating: number | null;
+}
+
 export const ALLERGENS: { code: string; label: string }[] = [
   { code: 'gluten', label: 'Gluten (trigo, cebada, avena)' },
   { code: 'lactosa', label: 'Lácteos / lactosa' },

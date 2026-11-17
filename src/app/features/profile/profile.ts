@@ -1,10 +1,11 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { ALLERGENS, Allergy, Consent, Preference, Profile } from '../../core/models';
+import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '../../core/models';
 
 @Component({
   selector: 'app-profile',
@@ -98,8 +99,33 @@ import { ALLERGENS, Allergy, Consent, Preference, Profile } from '../../core/mod
           <button type="button" class="btn secondary" (click)="exportData()">Descargar mis datos</button>
           <button type="button" class="btn secondary" (click)="auth.logout()">Cerrar sesión</button>
         </div>
-        <button type="button" class="btn danger" (click)="deleteAccount()">Borrar mi cuenta y todos mis datos</button>
+        <p class="muted small">El archivo incluye tus datos de salud (alergias): guárdalo en un lugar seguro.</p>
+        @if (!confirmingDelete()) {
+          <button type="button" class="btn danger" (click)="confirmingDelete.set(true)">Borrar mi cuenta y todos mis datos</button>
+        } @else {
+          <form class="stack danger-zone" (ngSubmit)="deleteAccount()">
+            <p>Se borrarán tu cuenta, conversaciones, listas, preferencias y alergias. No se puede deshacer.</p>
+            <label>Escribe tu contraseña para confirmar
+              <input name="deletePassword" type="password" autocomplete="current-password" [(ngModel)]="deletePassword" maxlength="128" />
+            </label>
+            @if (deleteError()) { <p class="error" role="alert">{{ deleteError() }}</p> }
+            <div class="row">
+              <button type="submit" class="btn danger" [disabled]="!deletePassword">Borrar definitivamente</button>
+              <button type="button" class="btn secondary" (click)="confirmingDelete.set(false)">Cancelar</button>
+            </div>
+          </form>
+        }
       </section>
+      @if (history().length) {
+        <section class="card stack">
+          <h2>Lo que has cocinado</h2>
+          <ul class="list">
+            @for (h of history(); track $index) {
+              <li class="row between"><span>{{ h.title }}</span><span class="muted small">{{ h.rating ? '★'.repeat(h.rating) : '' }}</span></li>
+            }
+          </ul>
+        </section>
+      }
     </div>
   `,
   styles: `
@@ -107,6 +133,8 @@ import { ALLERGENS, Allergy, Consent, Preference, Profile } from '../../core/mod
     .list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
     .between { justify-content: space-between; flex-wrap: nowrap; }
     .row select { flex: 1; min-width: 140px; }
+    .danger-zone { border: 1px solid var(--danger); border-radius: var(--radius-sm); padding: 12px; }
+    .danger-zone p { margin: 0; }
   `,
 })
 export class ProfilePage implements OnInit {
@@ -118,6 +146,10 @@ export class ProfilePage implements OnInit {
   protected readonly allergies = signal<Allergy[]>([]);
   protected readonly preferences = signal<Preference[]>([]);
   protected readonly message = signal('');
+  protected readonly history = signal<CookedEntry[]>([]);
+  protected readonly confirmingDelete = signal(false);
+  protected readonly deleteError = signal('');
+  protected deletePassword = '';
   protected newAllergen = '';
   protected newSeverity = 'ALLERGY';
 
@@ -137,6 +169,7 @@ export class ProfilePage implements OnInit {
     this.profile.set(p);
     this.consents.set(c);
     this.preferences.set(prefs);
+    void firstValueFrom(this.api.history()).then((h) => this.history.set(h)).catch(() => undefined);
     if (this.healthConsent()) await this.loadAllergies();
   }
 
@@ -178,6 +211,8 @@ export class ProfilePage implements OnInit {
   }
 
   protected async removeAllergy(a: Allergy): Promise<void> {
+    const grave = a.severity === 'SEVERE' ? ' Es una alergia GRAVE:' : '';
+    if (!confirm(`¿Quitar ${this.label(a.allergen)}?${grave} las recetas con ese ingrediente volverán a aparecer.`)) return;
     await firstValueFrom(this.api.deleteAllergy(a.id));
     await this.loadAllergies();
   }
@@ -188,19 +223,31 @@ export class ProfilePage implements OnInit {
   }
 
   protected async exportData(): Promise<void> {
-    const data = await firstValueFrom(this.api.exportData());
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mis-datos-la-sazon.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const data = await firstValueFrom(this.api.exportData());
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mis-datos-la-sazon.json';
+      a.click();
+      // Se libera después: revocarlo de inmediato cancela la descarga en algunos navegadores.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      this.flash('No pude preparar tus datos. Intenta en un momento.');
+    }
   }
 
   protected async deleteAccount(): Promise<void> {
-    if (!confirm('Se borrará tu cuenta, tus conversaciones, listas y preferencias. Esto no se puede deshacer. ¿Continuar?')) return;
-    await firstValueFrom(this.api.deleteAccount());
-    this.auth.clear();
+    this.deleteError.set('');
+    try {
+      await firstValueFrom(this.api.deleteAccount(this.deletePassword));
+    } catch (e) {
+      this.deleteError.set(e instanceof HttpErrorResponse && e.status === 403
+        ? 'La contraseña no es correcta.' : 'No pude borrar la cuenta. Intenta de nuevo.');
+      return;
+    }
+    this.deletePassword = '';
+    await this.auth.clear();
     location.assign('/entrar');
   }
 

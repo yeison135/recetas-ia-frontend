@@ -6,6 +6,7 @@ import { API_BASE } from './config';
 import {
   Allergy,
   Consent,
+  CookedEntry,
   Conversation,
   CookingTimer,
   Preference,
@@ -72,8 +73,14 @@ export class Api {
   exportData(): Observable<unknown> {
     return this.http.get<unknown>(`${this.base}/me/export`);
   }
-  deleteAccount(): Observable<void> {
-    return this.http.delete<void>(`${this.base}/me`);
+  deleteAccount(password: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me`, { body: { password } });
+  }
+  history(): Observable<CookedEntry[]> {
+    return this.http.get<CookedEntry[]>(`${this.base}/me/history`);
+  }
+  markCooked(slug: string, servings?: number, rating?: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/me/history`, { slug, servings, rating });
   }
 
   // Temporizadores
