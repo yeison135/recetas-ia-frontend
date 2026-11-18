@@ -7,23 +7,31 @@
   --text: #2b211b;
   --text-2: #6d5d52;
   --line: #f0dfd2;
-  --brand: #e25f4f;        /* coral */
+  --brand: #c8473a;        /* coral tostado: texto blanco encima con contraste AA (4.7:1) */
   --brand-ink: #ffffff;
   --brand-soft: #fde3dd;
-  --coral: #f0857c;        /* fondo de bienvenida */
+  --brand-strong: #a8372b; /* texto de marca sobre --brand-soft */
+  --coral: #e2655a;        /* fondo de bienvenida (texto blanco grande 3.4:1) */
   --mango: #ffd36e;
   --lavanda: #a7b4ef;
   --menta: #6fbf8e;
   --durazno: #ffc4b0;
   --font-display: 'Fredoka Variable', 'Nunito Variable', system-ui, sans-serif;
-  --accent: #4f7a3a;       /* aguacate */
+  --accent: #43692f;       /* aguacate */
   --accent-soft: #e3eedb;
   --warn: #9a5b00;
   --warn-soft: #fff1d6;
   --danger: #b3261e;
-  --radius: 14px;
-  --radius-sm: 10px;
+  --gold: #b87e00;         /* estrellas de calificación */
+  --seg-on: #ffffff;       /* opción activa de un control segmentado */
+  --radius-lg: 22px;
+  --radius: 18px;
+  --radius-sm: 12px;
   --shadow: 0 1px 2px rgb(43 33 27 / 6%), 0 4px 16px rgb(43 33 27 / 6%);
+  --shadow-lift: 0 2px 4px rgb(43 33 27 / 6%), 0 12px 28px rgb(43 33 27 / 12%);
+  --ring: 0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --font: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --nav-h: 64px;
   color-scheme: light;
@@ -41,12 +49,17 @@
     --brand-ink: #1c1714;
     --coral: #c8615a;
     --brand-soft: #4a2a20;
+    --brand-strong: #ffc9c2;
+    --gold: #f2c14e;
+    --seg-on: #4a2a20;
     --accent: #8fbf74;
     --accent-soft: #2c3a24;
     --warn: #f0b04a;
     --warn-soft: #3d2f14;
     --danger: #f28b82;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
+    --ring: 0 0 0 4px color-mix(in srgb, var(--brand) 30%, transparent);
     color-scheme: dark;
   }
 }
@@ -94,11 +107,17 @@ h3 {
     transition: border-color 0.15s, box-shadow 0.15s;
   }
 
+  input:hover,
+  select:hover,
+  textarea:hover {
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--line));
+  }
+
   input:focus,
   select:focus,
   textarea:focus {
     border-color: var(--brand);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
+    box-shadow: var(--ring);
     outline: none;
   }
 
@@ -181,6 +200,21 @@ a {
   padding: 16px 16px calc(var(--nav-h) + 32px);
 }
 
+/* Encabezado de pantalla: <header class="page-head"><h1>…</h1><p>subtítulo</p></header> */
+.page-head {
+  padding-top: 4px;
+
+  h1 {
+    font-size: 1.9rem;
+    margin: 0;
+  }
+
+  p {
+    margin: 2px 0 0;
+    color: var(--text-2);
+  }
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -226,27 +260,101 @@ a {
   justify-content: center;
   gap: 6px;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s var(--spring), background-color 0.18s, border-color 0.18s, box-shadow 0.18s, color 0.18s;
+
+  &:not(:disabled):hover {
+    background: color-mix(in srgb, var(--brand) 88%, #000);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.96);
+  }
 
   &:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: default;
+  }
+
+  &.block {
+    width: 100%;
+    min-height: 52px;
+    font-size: 1.05rem;
+    font-weight: 800;
   }
 
   &.secondary {
     background: var(--surface);
     color: var(--text);
     border-color: var(--line);
+
+    &:not(:disabled):hover {
+      background: var(--surface-2);
+      border-color: color-mix(in srgb, var(--brand) 35%, var(--line));
+      box-shadow: none;
+    }
   }
 
   &.ghost {
     background: transparent;
     color: var(--brand);
+
+    &:not(:disabled):hover {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      box-shadow: none;
+    }
   }
 
   &.danger {
     background: transparent;
     color: var(--danger);
     border-color: var(--danger);
+
+    &:not(:disabled):hover {
+      background: color-mix(in srgb, var(--danger) 10%, transparent);
+      box-shadow: none;
+    }
+  }
+
+  &.danger.solid {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  /* Botón redondo solo con ícono (lleva aria-label). */
+  &.icon {
+    width: 44px;
+    padding: 0;
+    flex: none;
+    font-size: 1.15rem;
+  }
+
+  /* Estado "guardado": verde con un pequeño rebote. */
+  &.saved,
+  &.saved:not(:disabled):hover {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: none;
+    animation: pop 0.4s var(--spring);
+  }
+}
+
+@keyframes pop {
+  40% {
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn.saved,
+  .btn.saved:not(:disabled):hover {
+    color: #1c1714;
+  }
+
+  .btn.danger.solid {
+    color: #1c1714;
   }
 }
 
@@ -301,6 +409,498 @@ textarea {
   }
 }
 
+/* ------------------------------------------------------------------ componentes de formulario */
+
+/* Título de tarjeta con ícono en burbuja: <h2 class="card-title"><span class="ico" aria-hidden="true">🍳</span>Texto</h2> */
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+
+  .ico {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: 12px;
+    background: var(--brand-soft);
+    font-size: 1.15rem;
+  }
+
+  .ico.mango { background: color-mix(in srgb, var(--mango) 45%, var(--surface)); }
+  .ico.menta { background: var(--accent-soft); }
+  .ico.lavanda { background: color-mix(in srgb, var(--lavanda) 40%, var(--surface)); }
+}
+
+/* Grupo con leyenda (fieldset sin marco): <fieldset class="group"><legend>…</legend>…</fieldset> */
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+
+  > legend {
+    padding: 0;
+    margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+}
+
+/*
+ * Control segmentado con radios nativos:
+ * <div class="seg"><label><input type="radio" name="x" value="a" /><span>A</span></label>…</div>
+ * El radio sigue siendo el control real (teclado y lector de pantalla), solo se oculta visualmente.
+ */
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--surface-2);
+
+  label {
+    flex: 1;
+    position: relative;
+    display: block;
+    font-weight: 700;
+  }
+
+  > label > span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 48px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 0.86rem;
+    line-height: 1.15;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s var(--spring);
+  }
+
+  .emo {
+    font-size: 1.2rem;
+  }
+
+  input:checked + span {
+    background: var(--seg-on);
+    color: var(--brand-strong);
+    box-shadow: 0 2px 8px rgb(43 33 27 / 12%);
+  }
+
+  label:active > span {
+    transform: scale(0.95);
+  }
+}
+
+/* Chips seleccionables (radio o checkbox): <div class="choices"><label class="choice"><input …/><span>…</span></label></div> */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  &.scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px;
+    padding: 2px 16px 6px;
+    scroll-padding: 0 16px;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+}
+
+.choice {
+  position: relative;
+  display: block;
+  flex: none;
+  font-weight: 700;
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.18s, border-color 0.18s, color 0.18s, transform 0.18s var(--spring);
+  }
+
+  &:hover > span {
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+  }
+
+  &:active > span {
+    transform: scale(0.95);
+  }
+
+  input:checked + span {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--brand-ink);
+  }
+
+  input[type='checkbox']:checked + span::before {
+    content: '✓';
+    font-weight: 900;
+  }
+}
+
+/* Radios y checkboxes ocultos pero accesibles dentro de .seg y .choice. */
+.seg input,
+.choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  opacity: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.seg input:focus-visible + span,
+.choice input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent);
+  outline-offset: 2px;
+}
+
+/* Contador con − y +: <div class="stepper" role="group" aria-label="…"><button class="btn secondary icon">−</button><strong>4</strong><button …>+</button></div> */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+
+  .btn {
+    width: 44px;
+    padding: 0;
+    font-size: 1.3rem;
+    font-weight: 800;
+    border-color: transparent;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(43 33 27 / 12%);
+  }
+
+  strong {
+    min-width: 2ch;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .unit {
+    padding-right: 6px;
+    color: var(--text-2);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+}
+
+.bump {
+  animation: pop 0.35s var(--spring);
+}
+
+/* Interruptor: <label class="switch-row"><span>Texto</span><input type="checkbox" role="switch" class="switch" /></label> */
+input.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-2) 60%, var(--surface));
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
+    transition: transform 0.25s var(--spring);
+  }
+
+  &:checked {
+    background: var(--accent);
+  }
+
+  &:checked::after {
+    transform: translateX(20px);
+  }
+}
+
+.switch-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Casilla redonda con chulito animado. */
+input.check {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--text-2) 60%, transparent);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color 0.18s, border-color 0.18s, transform 0.25s var(--spring);
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 11px;
+    margin-top: -3px;
+    border: solid #fff;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform 0.25s var(--spring);
+  }
+
+  &:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.08);
+  }
+
+  &:checked::after {
+    transform: rotate(45deg) scale(1);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  input.check::after {
+    border-color: #1c1714;
+  }
+}
+
+/* Buscador con ícono y botón: <form class="search"><span class="ico">🔍</span><input …/><button class="btn">Buscar</button></form> */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .ico {
+    position: absolute;
+    left: 16px;
+    color: var(--text-2);
+    pointer-events: none;
+    display: flex;
+  }
+
+  input {
+    min-height: 54px;
+    padding: 10px 104px 10px 46px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  input:focus {
+    border-color: var(--brand);
+    box-shadow: var(--ring);
+    outline: none;
+  }
+
+  input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .btn {
+    position: absolute;
+    right: 5px;
+    min-height: 44px;
+    padding: 0 18px;
+  }
+
+  .clear {
+    position: absolute;
+    right: 100px;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+}
+
+/* Aviso flotante (toast) sobre la barra de pestañas. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  box-shadow: var(--shadow-lift);
+  transform: translateX(-50%);
+  animation: toast-in 0.35s var(--spring);
+
+  &.ok::before {
+    content: '✓';
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--menta);
+    color: #1c1714;
+    font-weight: 900;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.96);
+  }
+}
+
+/* Barra de progreso: <div class="progress"><span style="width: 40%"></span></div> */
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--menta), var(--accent));
+    transition: width 0.4s var(--ease);
+  }
+}
+
+/* Filas de lista con acción a la derecha. */
+.rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+
+  > li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 52px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+    animation: rise 0.3s var(--ease) both;
+  }
+
+  > li:last-child {
+    border-bottom: 0;
+  }
+
+  > li.empty {
+    justify-content: center;
+    color: var(--text-2);
+    text-align: center;
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Marcador de carga. */
+.skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 40%, var(--surface)) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Entrada suave de secciones. */
+.enter {
+  animation: rise 0.35s var(--ease) both;
+}
+
 .notice {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
@@ -328,6 +928,8 @@ textarea {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
 }

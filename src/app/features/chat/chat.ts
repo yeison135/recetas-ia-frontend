@@ -91,7 +91,7 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
       </form>
       <div class="tools row small">
         @if (voice.canSpeak) {
-          <label class="toggle"><input type="checkbox" [(ngModel)]="readAloud" name="readAloud" /> Leer respuestas en voz alta</label>
+          <label class="toggle"><input type="checkbox" role="switch" class="switch" [(ngModel)]="readAloud" name="readAloud" /> Leer respuestas en voz alta</label>
         }
         <button type="button" class="btn ghost small" (click)="newConversation()">Nueva conversación</button>
       </div>
@@ -107,8 +107,18 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
     .messages { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 16px 0; }
     .empty { text-align: center; color: var(--text-2); }
     .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
-    .chip-btn { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 0.92rem; cursor: pointer; }
-    .bubble { max-width: 85%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; }
+    .chip-btn {
+      border: 1.5px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 8px 16px; min-height: 44px;
+      font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow);
+      transition: transform 0.18s var(--spring), border-color 0.15s, background-color 0.15s; animation: rise 0.35s var(--ease) both;
+    }
+    .chip-btn:nth-child(2) { animation-delay: 0.05s; }
+    .chip-btn:nth-child(3) { animation-delay: 0.1s; }
+    .chip-btn:nth-child(4) { animation-delay: 0.15s; }
+    .chip-btn:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); background: var(--brand-soft); }
+    .chip-btn:active { transform: scale(0.96); }
+    .chip-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
+    .bubble { max-width: 85%; padding: 10px 14px; border-radius: 20px; white-space: pre-wrap; word-wrap: break-word; animation: rise 0.25s var(--ease); }
     .bubble.user { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 6px; }
     .bubble.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
     .bubble.error { border-color: var(--danger); color: var(--danger); }
@@ -119,15 +129,27 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
     .typing span:nth-child(2) { animation-delay: 0.15s; }
     .typing span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes dot { 50% { opacity: 0.3; transform: translateY(-3px); } }
-    .composer { position: sticky; bottom: calc(var(--nav-h) + 8px); display: flex; gap: 8px; align-items: flex-end; background: var(--bg); padding-top: 8px; }
-    .composer textarea { resize: none; border-radius: 22px; padding: 10px 16px; max-height: 140px; }
+    .composer {
+      position: sticky; bottom: calc(var(--nav-h) + 8px); display: flex; gap: 6px; align-items: flex-end;
+      padding: 6px; border-radius: 30px; background: var(--surface); border: 1.5px solid var(--line); box-shadow: var(--shadow-lift);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .composer:focus-within { border-color: var(--brand); box-shadow: var(--ring), var(--shadow-lift); }
+    .composer textarea {
+      resize: none; border: 0; background: transparent; border-radius: 22px; padding: 11px 8px; min-height: 48px; max-height: 140px;
+    }
+    .composer textarea:focus, .composer textarea:focus-visible { outline: none; }
     .mic, .send { flex: none; width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 1.2rem; }
-    .mic { border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
+    .mic { border: 0; background: var(--surface-2); cursor: pointer; transition: transform 0.18s var(--spring), background-color 0.15s; }
+    .mic:hover { background: var(--brand-soft); }
+    .mic:active, .send:not(:disabled):active { transform: scale(0.92); }
+    .mic:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
     .mic.on { background: var(--accent); border-color: var(--accent); animation: listen 1.2s infinite; }
+    .send:disabled { opacity: 0.35; }
+    .send:not(:disabled) { animation: pop 0.3s var(--spring); }
     @keyframes listen { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 25%, transparent); } }
-    .tools { justify-content: space-between; margin-top: 6px; }
-    .toggle { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; }
-    .toggle input { width: auto; min-height: auto; }
+    .tools { justify-content: space-between; margin-top: 10px; }
+    .toggle { flex-direction: row; align-items: center; gap: 10px; font-weight: 600; min-height: 44px; cursor: pointer; }
   `,
 })
 export class Chat implements OnInit, OnDestroy {

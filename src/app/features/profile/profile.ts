@@ -15,133 +15,214 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
   imports: [FormsModule, AvatarPicker],
   template: `
     <div class="page stack">
-      <h1>Tu perfil</h1>
-      @if (message()) { <p class="notice" role="status">{{ message() }}</p> }
+      <header class="page-head enter">
+        <h1>Tu perfil</h1>
+        <p>{{ profile()?.displayName ? 'Hola, ' + profile()!.displayName + '. ' : '' }}Así La Sazón cocina a tu medida.</p>
+      </header>
+      <div class="toast-host" role="status" aria-live="polite">
+        @if (message()) { <p class="toast" [class.ok]="messageOk()">{{ message() }}</p> }
+      </div>
 
-      <section class="card stack">
-        <h2>Tu asistente</h2>
+      <section class="card stack enter">
+        <h2 class="card-title"><span class="ico lavanda" aria-hidden="true">✨</span>Tu asistente</h2>
         <app-avatar-picker [selected]="store.avatar()" (selectedChange)="changeAvatar($event)" />
       </section>
 
       @if (profile(); as p) {
-        <form class="card stack" (ngSubmit)="saveProfile()">
-          <h2>Sobre ti</h2>
-          <label>Nombre <input name="name" [(ngModel)]="p.displayName" maxlength="80" required /></label>
-          <div class="grid2">
-            <label>Nivel en la cocina
-              <select name="level" [(ngModel)]="p.cookingLevel">
-                <option value="BEGINNER">Estoy aprendiendo</option>
-                <option value="INTERMEDIATE">Me defiendo</option>
-                <option value="ADVANCED">Cocino de todo</option>
-              </select>
-            </label>
-            <label>Personas en casa <input name="household" type="number" min="1" max="20" [(ngModel)]="p.householdSize" /></label>
-            <label>Presupuesto
-              <select name="budget" [(ngModel)]="p.budgetLevel">
-                <option value="LOW">Económico</option>
-                <option value="MEDIUM">Medio</option>
-                <option value="HIGH">Sin problema</option>
-              </select>
-            </label>
-            <label>Ciudad <input name="city" [(ngModel)]="p.city" maxlength="80" placeholder="Pereira" /></label>
+        <form class="card stack enter" (ngSubmit)="saveProfile()">
+          <h2 class="card-title"><span class="ico mango" aria-hidden="true">🧑‍🍳</span>Sobre ti</h2>
+          <div class="field">
+            <input id="pf-name" name="name" [(ngModel)]="p.displayName" (ngModelChange)="edited()" placeholder=" "
+              maxlength="80" required autocomplete="given-name" />
+            <label for="pf-name">Nombre</label>
           </div>
-          <button class="btn" type="submit">Guardar</button>
+          <div class="field">
+            <input id="pf-city" name="city" [(ngModel)]="p.city" (ngModelChange)="edited()" placeholder=" "
+              maxlength="80" autocomplete="address-level2" aria-describedby="pf-city-hint" />
+            <label for="pf-city">Ciudad</label>
+            <span class="hint" id="pf-city-hint">Para recomendarte dónde comprar. Ej.: Pereira</span>
+          </div>
+
+          <fieldset class="group">
+            <legend>Nivel en la cocina</legend>
+            <div class="seg">
+              @for (o of levels; track o.value) {
+                <label><input type="radio" name="level" [value]="o.value" [(ngModel)]="p.cookingLevel" (ngModelChange)="edited()" />
+                  <span><span class="emo" aria-hidden="true">{{ o.emo }}</span>{{ o.label }}</span></label>
+              }
+            </div>
+          </fieldset>
+
+          <fieldset class="group">
+            <legend>Presupuesto para el mercado</legend>
+            <div class="seg">
+              @for (o of budgets; track o.value) {
+                <label><input type="radio" name="budget" [value]="o.value" [(ngModel)]="p.budgetLevel" (ngModelChange)="edited()" />
+                  <span><span class="emo" aria-hidden="true">{{ o.emo }}</span>{{ o.label }}</span></label>
+              }
+            </div>
+          </fieldset>
+
+          <div class="household">
+            <div>
+              <span class="group-label" id="pf-household">Personas en casa</span>
+              <span class="muted small">Ajusta las porciones de las recetas.</span>
+            </div>
+            <div class="stepper" role="group" aria-labelledby="pf-household">
+              <button type="button" class="btn secondary icon" (click)="household(p, -1)" [disabled]="p.householdSize <= 1" aria-label="Menos personas">−</button>
+              <strong aria-live="polite">{{ p.householdSize }}</strong>
+              <button type="button" class="btn secondary icon" (click)="household(p, 1)" [disabled]="p.householdSize >= 20" aria-label="Más personas">+</button>
+            </div>
+          </div>
+
+          <button class="btn block" type="submit" [class.saved]="saveState() === 'saved'" [disabled]="saveState() === 'saving'">
+            @switch (saveState()) {
+              @case ('saving') { <span class="spinner" aria-hidden="true"></span> Guardando… }
+              @case ('saved') { ✓ ¡Guardado! }
+              @default { {{ dirty() ? 'Guardar cambios' : 'Guardar' }} }
+            }
+          </button>
         </form>
+      } @else {
+        <div class="card stack" aria-hidden="true">
+          <div class="skeleton" style="height: 38px; width: 50%"></div>
+          <div class="skeleton" style="height: 56px"></div>
+          <div class="skeleton" style="height: 56px"></div>
+          <div class="skeleton" style="height: 56px"></div>
+        </div>
       }
 
-      <section class="card stack">
-        <h2>Alergias e intolerancias</h2>
+      <section class="card stack enter">
+        <h2 class="card-title"><span class="ico" aria-hidden="true">🛡️</span>Alergias e intolerancias</h2>
         @if (!healthConsent()) {
-          <p class="muted">
-            Las alergias son datos de salud (datos sensibles según la Ley 1581 de 2012). Para guardarlas y ocultarte
-            recetas que te hagan daño necesitamos tu autorización expresa. Puedes retirarla cuando quieras y se
-            borrarán tus alergias.
-          </p>
-          <button type="button" class="btn" (click)="grantHealth()">Autorizo el tratamiento de mis datos de salud</button>
+          <div class="consent">
+            <p>
+              Las alergias son <strong>datos de salud</strong> (datos sensibles según la Ley 1581 de 2012). Para guardarlas y
+              ocultarte recetas que te hagan daño necesitamos tu autorización expresa.
+            </p>
+            <p class="muted small">Puedes retirarla cuando quieras y se borrarán tus alergias.</p>
+          </div>
+          <button type="button" class="btn block" (click)="grantHealth()" [disabled]="busy() === 'consent'">
+            @if (busy() === 'consent') { <span class="spinner" aria-hidden="true"></span> }
+            Autorizo el tratamiento de mis datos de salud
+          </button>
         } @else {
-          <ul class="list">
+          <ul class="rows list">
             @for (a of allergies(); track a.id) {
-              <li class="row between">
-                <span>{{ label(a.allergen) }} <span class="chip warn">{{ severity[a.severity] }}</span></span>
-                <button type="button" class="btn ghost small" (click)="removeAllergy(a)">Quitar</button>
+              <li>
+                <span class="item-text">{{ label(a.allergen) }} <span class="chip sev" [attr.data-sev]="a.severity">{{ severity[a.severity] }}</span></span>
+                <button type="button" class="btn ghost small" (click)="removeAllergy(a)" [attr.aria-label]="'Quitar ' + label(a.allergen)">Quitar</button>
               </li>
             } @empty {
-              <li class="muted">No has registrado alergias.</li>
+              <li class="empty">No has registrado alergias. Agrega la primera aquí abajo.</li>
             }
           </ul>
-          <div class="row">
-            <select name="newAllergen" [(ngModel)]="newAllergen" aria-label="Alérgeno">
-              @for (a of available(); track a.code) { <option [value]="a.code">{{ a.label }}</option> }
-            </select>
-            <select name="newSeverity" [(ngModel)]="newSeverity" aria-label="Gravedad">
-              <option value="INTOLERANCE">Intolerancia</option>
-              <option value="ALLERGY">Alergia</option>
-              <option value="SEVERE">Alergia grave</option>
-            </select>
-            <button type="button" class="btn" (click)="addAllergy()" [disabled]="!newAllergen">Agregar</button>
-          </div>
+          @if (available().length) {
+            <div class="add-box stack">
+              <fieldset class="group">
+                <legend>Alérgeno</legend>
+                <div class="choices">
+                  @for (a of available(); track a.code) {
+                    <label class="choice"><input type="radio" name="newAllergen" [value]="a.code" [(ngModel)]="newAllergen" /><span>{{ a.label }}</span></label>
+                  }
+                </div>
+              </fieldset>
+              <fieldset class="group">
+                <legend>Gravedad</legend>
+                <div class="seg">
+                  @for (o of severities; track o.value) {
+                    <label><input type="radio" name="newSeverity" [value]="o.value" [(ngModel)]="newSeverity" /><span>{{ o.label }}</span></label>
+                  }
+                </div>
+              </fieldset>
+              <button type="button" class="btn block" (click)="addAllergy()" [disabled]="!newAllergen || busy() === 'allergy'">
+                @if (busy() === 'allergy') { <span class="spinner" aria-hidden="true"></span> }
+                Agregar
+              </button>
+            </div>
+          }
           <p class="muted small">Igual revisa siempre las etiquetas: La Sazón ayuda, pero no reemplaza tu cuidado ni el de un médico.</p>
           <button type="button" class="btn danger small" (click)="revokeHealth()">Retirar autorización y borrar mis alergias</button>
         }
       </section>
 
-      <section class="card stack">
-        <h2>Lo que La Sazón recuerda de ti</h2>
-        <ul class="list">
+      <section class="card stack enter">
+        <h2 class="card-title"><span class="ico menta" aria-hidden="true">🧠</span>Lo que La Sazón recuerda de ti</h2>
+        <ul class="rows list">
           @for (p of preferences(); track p.id) {
-            <li class="row between">
-              <span>{{ kind[p.kind] ?? p.kind }}: {{ p.value }}
+            <li>
+              <span class="item-text"><span class="kind">{{ kind[p.kind] ?? p.kind }}</span> {{ p.value }}
                 @if (p.source === 'ASSISTANT') { <span class="chip">lo anotó La Sazón</span> }
               </span>
-              <button type="button" class="btn ghost small" (click)="removePreference(p)">Olvidar</button>
+              <button type="button" class="btn ghost small" (click)="removePreference(p)" [attr.aria-label]="'Olvidar ' + p.value">Olvidar</button>
             </li>
           } @empty {
-            <li class="muted">Todavía nada. Cuéntale tus gustos en la conversación.</li>
+            <li class="empty">Todavía nada. Cuéntale tus gustos en la conversación.</li>
           }
         </ul>
       </section>
 
-      <section class="card stack">
-        <h2>Tus datos</h2>
-        <div class="row">
-          <button type="button" class="btn secondary" (click)="exportData()">Descargar mis datos</button>
-          <button type="button" class="btn secondary" (click)="auth.logout()">Cerrar sesión</button>
+      @if (history().length) {
+        <section class="card stack enter">
+          <h2 class="card-title"><span class="ico mango" aria-hidden="true">🍲</span>Lo que has cocinado</h2>
+          <ul class="rows list">
+            @for (h of history(); track $index) {
+              <li>
+                <span class="item-text">{{ h.title }}</span>
+                @if (h.rating) { <span class="stars" [attr.aria-label]="h.rating + ' de 5 estrellas'">{{ '★'.repeat(h.rating) }}</span> }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      <section class="card stack enter">
+        <h2 class="card-title"><span class="ico lavanda" aria-hidden="true">🔐</span>Tus datos</h2>
+        <div class="actions2">
+          <button type="button" class="btn secondary" (click)="exportData()"><span aria-hidden="true">⬇️</span> Descargar mis datos</button>
+          <button type="button" class="btn secondary" (click)="auth.logout()"><span aria-hidden="true">👋</span> Cerrar sesión</button>
         </div>
         <p class="muted small">El archivo incluye tus datos de salud (alergias): guárdalo en un lugar seguro.</p>
         @if (!confirmingDelete()) {
           <button type="button" class="btn danger" (click)="confirmingDelete.set(true)">Borrar mi cuenta y todos mis datos</button>
         } @else {
           <form class="stack danger-zone" (ngSubmit)="deleteAccount()">
-            <p>Se borrarán tu cuenta, conversaciones, listas, preferencias y alergias. No se puede deshacer.</p>
-            <label>Escribe tu contraseña para confirmar
-              <input name="deletePassword" type="password" autocomplete="current-password" [(ngModel)]="deletePassword" maxlength="128" />
-            </label>
-            @if (deleteError()) { <p class="error" role="alert">{{ deleteError() }}</p> }
-            <div class="row">
-              <button type="submit" class="btn danger" [disabled]="!deletePassword">Borrar definitivamente</button>
+            <p><strong>¿Seguro?</strong> Se borrarán tu cuenta, conversaciones, listas, preferencias y alergias. No se puede deshacer.</p>
+            <div class="field" [class.invalid]="deleteError()">
+              <input id="pf-delete" name="deletePassword" type="password" placeholder=" " autocomplete="current-password"
+                [(ngModel)]="deletePassword" maxlength="128" [attr.aria-describedby]="deleteError() ? 'pf-delete-error' : null" />
+              <label for="pf-delete">Tu contraseña, para confirmar</label>
+            </div>
+            @if (deleteError()) { <p class="error" id="pf-delete-error" role="alert">{{ deleteError() }}</p> }
+            <div class="actions2">
               <button type="button" class="btn secondary" (click)="confirmingDelete.set(false)">Cancelar</button>
+              <button type="submit" class="btn danger solid" [disabled]="!deletePassword">Borrar definitivamente</button>
             </div>
           </form>
         }
       </section>
-      @if (history().length) {
-        <section class="card stack">
-          <h2>Lo que has cocinado</h2>
-          <ul class="list">
-            @for (h of history(); track $index) {
-              <li class="row between"><span>{{ h.title }}</span><span class="muted small">{{ h.rating ? '★'.repeat(h.rating) : '' }}</span></li>
-            }
-          </ul>
-        </section>
-      }
     </div>
   `,
   styles: `
-    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    .list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-    .between { justify-content: space-between; flex-wrap: nowrap; }
-    .row select { flex: 1; min-width: 140px; }
-    .danger-zone { border: 1px solid var(--danger); border-radius: var(--radius-sm); padding: 12px; }
+    .card { gap: 16px; }
+    .household { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .household > div:first-child { display: flex; flex-direction: column; }
+    .group-label { font-weight: 700; font-size: 0.95rem; }
+    .consent { padding: 14px; border-radius: var(--radius-sm); background: var(--surface-2); }
+    .consent p { margin: 0 0 6px; }
+    .consent p:last-child { margin: 0; }
+    .add-box { padding: 14px; border-radius: var(--radius); background: var(--surface-2); }
+    .add-box .choice input:not(:checked) + span { background: var(--surface); }
+    .add-box .seg { background: var(--bg); }
+    .item-text { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
+    .kind { color: var(--text-2); font-weight: 700; font-size: 0.85rem; }
+    .kind::after { content: ':'; }
+    .sev { background: var(--surface-2); color: var(--text-2); }
+    .sev[data-sev='ALLERGY'] { background: var(--warn-soft); color: var(--warn); }
+    .sev[data-sev='SEVERE'] { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
+    .stars { color: var(--gold); letter-spacing: 2px; }
+    .actions2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+    .danger-zone { border: 1.5px solid var(--danger); border-radius: var(--radius); padding: 14px; background: color-mix(in srgb, var(--danger) 5%, var(--surface)); animation: rise 0.3s var(--ease); }
     .danger-zone p { margin: 0; }
   `,
 })
@@ -155,6 +236,27 @@ export class ProfilePage implements OnInit {
   protected readonly allergies = signal<Allergy[]>([]);
   protected readonly preferences = signal<Preference[]>([]);
   protected readonly message = signal('');
+  protected readonly messageOk = signal(true);
+  protected readonly saveState = signal<'idle' | 'saving' | 'saved'>('idle');
+  protected readonly dirty = signal(false);
+  protected readonly busy = signal<'' | 'consent' | 'allergy'>('');
+  protected readonly levels = [
+    { value: 'BEGINNER', label: 'Aprendiendo', emo: '🌱' },
+    { value: 'INTERMEDIATE', label: 'Me defiendo', emo: '🍳' },
+    { value: 'ADVANCED', label: 'De todo', emo: '👩‍🍳' },
+  ];
+  protected readonly budgets = [
+    { value: 'LOW', label: 'Económico', emo: '🪙' },
+    { value: 'MEDIUM', label: 'Medio', emo: '💵' },
+    { value: 'HIGH', label: 'Sin problema', emo: '💳' },
+  ];
+  protected readonly severities = [
+    { value: 'INTOLERANCE', label: 'Intolerancia' },
+    { value: 'ALLERGY', label: 'Alergia' },
+    { value: 'SEVERE', label: 'Grave' },
+  ];
+  private flashTimer?: ReturnType<typeof setTimeout>;
+  private savedTimer?: ReturnType<typeof setTimeout>;
   protected readonly history = signal<CookedEntry[]>([]);
   protected readonly confirmingDelete = signal(false);
   protected readonly deleteError = signal('');
@@ -196,26 +298,49 @@ export class ProfilePage implements OnInit {
       this.flash(`Listo, ahora te acompaña ${avatarInfo(kind).name}.`);
     } catch {
       this.store.avatar.set(previous);
-      this.flash('No pude cambiar el avatar.');
+      this.flash('No pude cambiar el avatar.', false);
     }
+  }
+
+  protected edited(): void {
+    this.dirty.set(true);
+    if (this.saveState() === 'saved') this.saveState.set('idle');
+  }
+
+  protected household(p: Profile, delta: number): void {
+    p.householdSize = Math.min(20, Math.max(1, Number(p.householdSize) + delta));
+    this.edited();
   }
 
   protected async saveProfile(): Promise<void> {
     const p = this.profile();
-    if (!p) return;
+    if (!p || this.saveState() === 'saving') return;
+    this.saveState.set('saving');
     try {
       this.profile.set(await firstValueFrom(this.api.updateProfile({ ...p, householdSize: Number(p.householdSize) })));
+      this.dirty.set(false);
+      this.saveState.set('saved');
+      clearTimeout(this.savedTimer);
+      this.savedTimer = setTimeout(() => this.saveState.set('idle'), 2200);
       this.flash('Perfil guardado.');
     } catch {
-      this.flash('Revisa los datos del perfil.');
+      this.saveState.set('idle');
+      this.flash('Revisa los datos del perfil.', false);
     }
   }
 
   protected async grantHealth(): Promise<void> {
-    await firstValueFrom(this.api.grantConsent('HEALTH_DATA'));
-    // Primero las alergias, luego el consentimiento: así el formulario aparece ya con su valor inicial.
-    await this.loadAllergies();
-    this.consents.set(await firstValueFrom(this.api.consents()));
+    this.busy.set('consent');
+    try {
+      await firstValueFrom(this.api.grantConsent('HEALTH_DATA'));
+      // Primero las alergias, luego el consentimiento: así el formulario aparece ya con su valor inicial.
+      await this.loadAllergies();
+      this.consents.set(await firstValueFrom(this.api.consents()));
+    } catch {
+      this.flash('No pude registrar tu autorización. Intenta de nuevo.', false);
+    } finally {
+      this.busy.set('');
+    }
   }
 
   protected async revokeHealth(): Promise<void> {
@@ -228,9 +353,18 @@ export class ProfilePage implements OnInit {
 
   protected async addAllergy(): Promise<void> {
     if (!this.newAllergen) return;
-    await firstValueFrom(this.api.addAllergy(this.newAllergen, this.newSeverity));
-    this.newAllergen = '';
-    await this.loadAllergies();
+    const name = this.label(this.newAllergen);
+    this.busy.set('allergy');
+    try {
+      await firstValueFrom(this.api.addAllergy(this.newAllergen, this.newSeverity));
+      this.newAllergen = '';
+      await this.loadAllergies();
+      this.flash(`${name} agregado. Ya no verás recetas con ese ingrediente.`);
+    } catch {
+      this.flash('No pude agregar la alergia.', false);
+    } finally {
+      this.busy.set('');
+    }
   }
 
   protected async removeAllergy(a: Allergy): Promise<void> {
@@ -256,7 +390,7 @@ export class ProfilePage implements OnInit {
       // Se libera después: revocarlo de inmediato cancela la descarga en algunos navegadores.
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      this.flash('No pude preparar tus datos. Intenta en un momento.');
+      this.flash('No pude preparar tus datos. Intenta en un momento.', false);
     }
   }
 
@@ -276,11 +410,14 @@ export class ProfilePage implements OnInit {
 
   private async loadAllergies(): Promise<void> {
     this.allergies.set(await firstValueFrom(this.api.allergies()));
-    this.newAllergen = this.available()[0]?.code ?? '';
+    // Sin preselección: la persona elige el alérgeno a conciencia.
+    this.newAllergen = '';
   }
 
-  private flash(text: string): void {
+  private flash(text: string, ok = true): void {
     this.message.set(text);
-    setTimeout(() => this.message.set(''), 3000);
+    this.messageOk.set(ok);
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => this.message.set(''), 3200);
   }
 }

@@ -29,10 +29,10 @@ import { TimerStore, formatSeconds } from './core/timers';
     </main>
     @if (showChrome()) {
       <nav class="tabs" aria-label="Secciones">
-        <a routerLink="/cocina" routerLinkActive="active"><span aria-hidden="true">🍲</span>Cocina</a>
-        <a routerLink="/recetas" routerLinkActive="active"><span aria-hidden="true">📖</span>Recetas</a>
-        <a routerLink="/mercado" routerLinkActive="active"><span aria-hidden="true">🧺</span>Mercado</a>
-        <a routerLink="/perfil" routerLinkActive="active"><span aria-hidden="true">👤</span>Perfil</a>
+        <a routerLink="/cocina" routerLinkActive="active" ariaCurrentWhenActive="page"><span class="ico" aria-hidden="true">🍲</span>Cocina</a>
+        <a routerLink="/recetas" routerLinkActive="active" ariaCurrentWhenActive="page"><span class="ico" aria-hidden="true">📖</span>Recetas</a>
+        <a routerLink="/mercado" routerLinkActive="active" ariaCurrentWhenActive="page"><span class="ico" aria-hidden="true">🧺</span>Mercado</a>
+        <a routerLink="/perfil" routerLinkActive="active" ariaCurrentWhenActive="page"><span class="ico" aria-hidden="true">👤</span>Perfil</a>
       </nav>
     }
   `,
@@ -67,10 +67,17 @@ import { TimerStore, formatSeconds } from './core/timers';
     }
     .timer .label { font-weight: 600; max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .timer .time { font-variant-numeric: tabular-nums; }
+    .timer { animation: rise 0.3s var(--ease) both; box-shadow: var(--shadow); }
+    .timer .time { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
     .close {
-      border: 0; background: transparent; color: inherit; font-size: 1.3rem; line-height: 1;
-      width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+      border: 0; background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; font-size: 1.3rem; line-height: 1;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.18s var(--spring);
+      position: relative;
     }
+    /* Área táctil de 44px sin agrandar el círculo. */
+    .close::after { content: ''; position: absolute; inset: -4px; }
+    .close:active { transform: scale(0.9); }
+    .close:focus-visible { outline: 3px solid currentColor; outline-offset: 1px; }
     @keyframes pulse { 50% { transform: scale(1.04); } }
     .tabs {
       position: fixed;
@@ -79,8 +86,10 @@ import { TimerStore, formatSeconds } from './core/timers';
       padding-bottom: env(safe-area-inset-bottom);
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      background: var(--surface);
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      backdrop-filter: blur(10px);
       border-top: 1px solid var(--line);
+      box-shadow: 0 -6px 20px rgb(43 33 27 / 6%);
       z-index: 10;
     }
     .tabs a {
@@ -91,11 +100,26 @@ import { TimerStore, formatSeconds } from './core/timers';
       gap: 2px;
       color: var(--text-2);
       text-decoration: none;
-      font-size: 0.8rem;
-      font-weight: 600;
+      font-size: 0.78rem;
+      font-weight: 700;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.2s;
     }
-    .tabs a span { font-size: 1.35rem; }
-    .tabs a.active { color: var(--brand); }
+    .tabs .ico {
+      display: grid;
+      place-items: center;
+      width: 56px;
+      height: 32px;
+      border-radius: 999px;
+      font-size: 1.3rem;
+      transition: background-color 0.25s, transform 0.25s var(--spring);
+    }
+    .tabs a:hover .ico { background: var(--surface-2); }
+    .tabs a:active .ico { transform: scale(0.9); }
+    .tabs a.active { color: var(--brand-strong); }
+    .tabs a.active .ico { background: var(--brand-soft); transform: translateY(-1px); }
+    .tabs a:focus-visible { outline: none; }
+    .tabs a:focus-visible .ico { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
   `,
 })
 export class App {

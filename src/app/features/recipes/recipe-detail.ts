@@ -13,29 +13,36 @@ import { VoiceService } from '../../core/voice';
   imports: [RouterLink],
   template: `
     <div class="page stack">
-      <a routerLink="/recetas" class="back">← Recetas</a>
+      <a routerLink="/recetas" class="back"><span aria-hidden="true">←</span> Recetas</a>
       @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      <div class="toast-host" role="status" aria-live="polite">
+        @if (message()) { <p class="toast ok">{{ message() }}</p> }
+      </div>
       @if (recipe(); as r) {
-        <header>
+        <header class="enter">
+          <span class="chip region">{{ r.region }}</span>
           <h1>{{ r.title }}</h1>
           <p class="muted">{{ r.summary }}</p>
-          <div class="row">
-            <span class="chip">{{ r.region }}</span>
-            <span class="chip">Prep. {{ r.prepMinutes }} min</span>
-            <span class="chip">Cocción {{ r.cookMinutes }} min</span>
-            <span class="chip">{{ difficulty[r.difficulty] }}</span>
-            <span class="chip">{{ cost[r.costLevel] }}</span>
-            @for (a of r.allergens; track a) { <span class="chip warn">Contiene {{ a.replace('_', ' ') }}</span> }
-          </div>
+          <dl class="facts">
+            <div><dt>Preparación</dt><dd>{{ r.prepMinutes }} min</dd></div>
+            <div><dt>Cocción</dt><dd>{{ r.cookMinutes }} min</dd></div>
+            <div><dt>Dificultad</dt><dd>{{ difficulty[r.difficulty] }}</dd></div>
+            <div><dt>Costo</dt><dd>{{ cost[r.costLevel] }}</dd></div>
+          </dl>
+          @if (r.allergens.length) {
+            <div class="row">
+              @for (a of r.allergens; track a) { <span class="chip warn">⚠️ Contiene {{ a.replace('_', ' ') }}</span> }
+            </div>
+          }
         </header>
 
-        <section class="card stack">
-          <div class="row servings">
-            <h2>Ingredientes</h2>
+        <section class="card stack enter">
+          <div class="servings">
+            <h2 class="card-title"><span class="ico mango" aria-hidden="true">🧺</span>Ingredientes</h2>
             <div class="stepper" role="group" aria-label="Porciones">
-              <button type="button" class="btn secondary" (click)="changeServings(-1)" [disabled]="r.servings <= 1" aria-label="Menos porciones">−</button>
-              <span><strong>{{ r.servings }}</strong> porciones</span>
-              <button type="button" class="btn secondary" (click)="changeServings(1)" [disabled]="r.servings >= 50" aria-label="Más porciones">+</button>
+              <button type="button" class="btn secondary icon" (click)="changeServings(-1)" [disabled]="r.servings <= 1" aria-label="Menos porciones">−</button>
+              <span class="count"><strong>{{ r.servings }}</strong> porciones</span>
+              <button type="button" class="btn secondary icon" (click)="changeServings(1)" [disabled]="r.servings >= 50" aria-label="Más porciones">+</button>
             </div>
           </div>
           <ul class="ingredients">
@@ -46,30 +53,40 @@ import { VoiceService } from '../../core/voice';
               </li>
             }
           </ul>
-          <button type="button" class="btn secondary" (click)="makeList()" [disabled]="busy()">🧺 Hacer lista de mercado</button>
+          <button type="button" class="btn secondary block" (click)="makeList()" [disabled]="busy()">
+            @if (busy()) { <span class="spinner" aria-hidden="true"></span> } @else { <span aria-hidden="true">🛒</span> }
+            Hacer lista de mercado
+          </button>
           @if (r.substitutes.length) {
-            <details>
-              <summary>Sustitutos</summary>
+            <details class="subs">
+              <summary>¿Te falta algo? Sustitutos</summary>
               <ul>
                 @for (s of r.substitutes; track $index) {
-                  <li>{{ s.ingredient }} → {{ s.substitute }}@if (s.note) {<span class="muted"> ({{ s.note }})</span>}</li>
+                  <li>{{ s.ingredient }} → <strong>{{ s.substitute }}</strong>@if (s.note) {<span class="muted"> ({{ s.note }})</span>}</li>
                 }
               </ul>
             </details>
           }
         </section>
 
-        <section class="stack">
-          <div class="row servings">
-            <h2>Preparación</h2>
-            <button type="button" class="btn secondary" (click)="cookMode.set(!cookMode())">{{ cookMode() ? 'Ver todos los pasos' : '👩‍🍳 Modo cocina' }}</button>
+        <section class="stack enter">
+          <div class="servings">
+            <h2 class="card-title"><span class="ico menta" aria-hidden="true">🔥</span>Preparación</h2>
+            <button type="button" class="btn secondary" (click)="cookMode.set(!cookMode())" [attr.aria-pressed]="cookMode()">
+              {{ cookMode() ? 'Ver todos los pasos' : '👩‍🍳 Modo cocina' }}
+            </button>
           </div>
 
           @if (cookMode()) {
             @let step = r.steps[current()];
             <div class="card cook">
-              <p class="muted small">Paso {{ current() + 1 }} de {{ r.steps.length }}</p>
-              <p class="big">{{ step.instruction }}</p>
+              <div class="cook-head">
+                <p class="muted small">Paso {{ current() + 1 }} de {{ r.steps.length }}</p>
+                <div class="progress" aria-hidden="true"><span [style.width.%]="((current() + 1) / r.steps.length) * 100"></span></div>
+              </div>
+              @for (s of [step]; track s.position) {
+                <p class="big">{{ s.instruction }}</p>
+              }
               <div class="row">
                 @if (step.timerSeconds) {
                   <button type="button" class="btn" (click)="startTimer(step.position, step.timerSeconds)">⏱️ {{ format(step.timerSeconds) }}</button>
@@ -78,7 +95,7 @@ import { VoiceService } from '../../core/voice';
                   <button type="button" class="btn secondary" (click)="voice.speak(step.instruction)">🔊 Leer</button>
                 }
               </div>
-              <div class="row nav">
+              <div class="nav">
                 <button type="button" class="btn secondary" (click)="go(-1)" [disabled]="current() === 0">← Anterior</button>
                 <button type="button" class="btn" (click)="go(1)" [disabled]="current() === r.steps.length - 1">Siguiente →</button>
               </div>
@@ -87,51 +104,84 @@ import { VoiceService } from '../../core/voice';
             <ol class="steps">
               @for (s of r.steps; track s.position) {
                 <li class="card">
-                  <p>{{ s.instruction }}</p>
-                  @if (s.timerSeconds) {
-                    <button type="button" class="btn secondary small" (click)="startTimer(s.position, s.timerSeconds)">⏱️ {{ format(s.timerSeconds) }}</button>
-                  }
+                  <span class="num" aria-hidden="true">{{ $index + 1 }}</span>
+                  <div>
+                    <p>{{ s.instruction }}</p>
+                    @if (s.timerSeconds) {
+                      <button type="button" class="btn secondary small timer" (click)="startTimer(s.position, s.timerSeconds)">⏱️ {{ format(s.timerSeconds) }}</button>
+                    }
+                  </div>
                 </li>
               }
             </ol>
           }
         </section>
-        <section class="card stack cooked">
+        <section class="card stack cooked enter">
           @if (!cooked()) {
-            <h2>¿Ya la cocinaste?</h2>
+            <h2 class="card-title"><span class="ico lavanda" aria-hidden="true">⭐</span>¿Ya la cocinaste?</h2>
             <p class="muted small">Cuéntale a La Sazón qué tal te quedó: así no te repite platos y te recomienda mejor.</p>
-            <div class="row stars" role="group" aria-label="Calificación">
+            <div class="stars" role="group" aria-label="Calificación">
               @for (n of [1, 2, 3, 4, 5]; track n) {
-                <button type="button" class="star" [class.on]="n <= rating()" (click)="rating.set(n)" [attr.aria-label]="n + ' de 5'">★</button>
+                <button type="button" class="star" [class.on]="n <= rating()" (click)="rating.set(n)"
+                  [attr.aria-label]="n + ' de 5'" [attr.aria-pressed]="n === rating()">★</button>
               }
             </div>
-            <button type="button" class="btn" (click)="markCooked()">¡Lo cociné!</button>
+            <button type="button" class="btn block" (click)="markCooked()">¡Lo cociné!</button>
           } @else {
-            <p>¡Qué rico! Quedó en tu historial. 🎉</p>
+            <p class="done">🎉 ¡Qué rico! Quedó en tu historial.</p>
           }
         </section>
-        @if (message()) { <p class="notice" role="status">{{ message() }}</p> }
       }
     </div>
   `,
   styles: `
-    .back { text-decoration: none; font-weight: 600; }
-    .servings { justify-content: space-between; }
-    .servings h2 { margin: 0; }
-    .stepper { display: flex; align-items: center; gap: 10px; }
-    .stepper .btn { width: 44px; padding: 0; }
-    .ingredients { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-    .ingredients li { display: grid; grid-template-columns: 7.5rem 1fr; gap: 8px; }
-    .ingredients .qty { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .back {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px 0 6px;
+      border-radius: 999px; text-decoration: none; font-weight: 700; color: var(--text); transition: background-color 0.15s;
+    }
+    .back span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); color: var(--brand); }
+    .back:hover { background: var(--surface-2); }
+    header h1 { font-size: 1.9rem; margin: 8px 0 4px; }
+    header > p { margin: 0 0 12px; }
+    .chip.region { background: var(--brand-soft); color: var(--brand-strong); }
+    .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 10px; }
+    .facts div { padding: 10px 6px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line); text-align: center; }
+    .facts dt { font-size: 0.72rem; font-weight: 700; color: var(--text-2); }
+    .facts dd { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
+    .servings { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .stepper .count { padding: 0 4px; color: var(--text-2); font-weight: 600; font-size: 0.9rem; }
+    .stepper .count strong { color: var(--text); }
+    .ingredients { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+    .ingredients li { display: grid; grid-template-columns: 7.5rem 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+    .ingredients li:last-child { border-bottom: 0; }
+    .ingredients .qty { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--brand-strong); }
     .ingredients .optional { opacity: 0.8; }
-    .steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 10px; }
-    .steps li p { margin: 0 0 6px; }
-    .cook .big { font-size: 1.35rem; line-height: 1.45; }
-    .cook .nav { justify-content: space-between; margin-top: 12px; }
+    .subs { border-radius: var(--radius-sm); background: var(--surface-2); padding: 0 14px; }
+    .subs summary { min-height: 48px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+    .subs ul { margin: 0; padding: 0 0 12px 1.1rem; display: flex; flex-direction: column; gap: 4px; }
+    .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .steps li { display: flex; gap: 12px; align-items: flex-start; }
+    .steps .num {
+      display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%;
+      background: var(--brand); color: var(--brand-ink); font-family: var(--font-display); font-weight: 600;
+    }
+    .steps li p { margin: 4px 0 8px; }
+    .steps .timer { min-height: 44px; }
+    .cook { display: flex; flex-direction: column; gap: 12px; border-width: 2px; border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
+    .cook-head p { margin: 0 0 6px; font-weight: 700; }
+    .cook .big { font-size: 1.35rem; line-height: 1.45; margin: 0; animation: rise 0.3s var(--ease); }
+    .cook .nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
     .cooked h2 { margin: 0; }
     .cooked p { margin: 0; }
-    .star { border: 0; background: transparent; font-size: 2rem; line-height: 1; color: var(--line); cursor: pointer; padding: 4px; }
-    .star.on { color: #e0a100; }
+    .cooked .done { font-weight: 700; animation: pop 0.4s var(--spring); }
+    .stars { display: flex; gap: 2px; }
+    .star {
+      width: 48px; height: 48px; border: 0; border-radius: 50%; background: transparent; font-size: 2.1rem; line-height: 1;
+      color: color-mix(in srgb, var(--text-2) 40%, var(--surface)); cursor: pointer; padding: 0; transition: transform 0.2s var(--spring), color 0.15s;
+    }
+    .star:hover { transform: scale(1.12); }
+    .star.on { color: var(--gold); transform: scale(1.05); }
+    .star:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); }
   `,
 })
 export class RecipeDetailPage implements OnInit {
@@ -181,9 +231,9 @@ export class RecipeDetailPage implements OnInit {
     if (!r) return;
     try {
       await this.timers.start(`${r.title} · paso ${position}`.slice(0, 80), seconds);
-      this.message.set(`Temporizador de ${formatSeconds(seconds)} en marcha.`);
+      this.flash(`Temporizador de ${formatSeconds(seconds)} en marcha.`);
     } catch {
-      this.message.set('No pude iniciar el temporizador.');
+      this.flash('No pude iniciar el temporizador.');
     }
   }
 
@@ -194,7 +244,7 @@ export class RecipeDetailPage implements OnInit {
       await firstValueFrom(this.api.markCooked(r.slug, r.servings, this.rating() || undefined));
       this.cooked.set(true);
     } catch {
-      this.message.set('No pude guardarlo en tu historial.');
+      this.flash('No pude guardarlo en tu historial.');
     }
   }
 
@@ -206,7 +256,7 @@ export class RecipeDetailPage implements OnInit {
       await firstValueFrom(this.api.createShoppingList([r.slug], r.servings));
       await this.router.navigateByUrl('/mercado');
     } catch {
-      this.message.set('No pude crear la lista de mercado.');
+      this.flash('No pude crear la lista de mercado.');
     } finally {
       this.busy.set(false);
     }
@@ -219,5 +269,13 @@ export class RecipeDetailPage implements OnInit {
     } catch {
       this.error.set('No encontré esa receta.');
     }
+  }
+
+  private flashTimer?: ReturnType<typeof setTimeout>;
+
+  private flash(text: string): void {
+    this.message.set(text);
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => this.message.set(''), 3200);
   }
 }

@@ -121,9 +121,14 @@ type Mode = 'welcome' | 'login' | 'register';
     .sheet-open .hero { flex: none; padding: 40px 24px 16px; }
     .brand { font-family: var(--font-display); font-size: clamp(2.6rem, 11vw, 3.6rem); font-weight: 600; margin: 12px 0 0; color: #fff; letter-spacing: 0.01em; }
     .sheet-open .brand { font-size: 2rem; margin-top: 4px; }
-    .tagline { margin: 4px 0 0; color: var(--mango); font-weight: 800; font-size: 1.05rem; }
+    .tagline { margin: 6px 0 0; color: #fff; font-weight: 800; font-size: 1.15rem; }
+    .tagline::after { content: ''; display: block; width: 56px; height: 5px; margin: 8px auto 0; border-radius: 3px; background: var(--mango); }
+    .sheet-open .tagline::after { display: none; }
     .actions { display: flex; flex-direction: column; gap: 14px; width: min(100%, 340px); margin-top: 36px; }
-    .actions .btn { min-height: 54px; font-size: 1.05rem; font-weight: 800; }
+    .actions .btn { min-height: 56px; font-size: 1.125rem; font-weight: 800; }
+    .actions .btn:not(:disabled):hover { background: rgb(255 255 255 / 12%); box-shadow: none; }
+    .actions .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    .actions .pill-white:not(:disabled):hover { background: #fff; box-shadow: 0 10px 24px rgb(120 40 30 / 25%); }
     .sheet {
       position: relative; z-index: 2; flex: 1;
       background: var(--surface); color: var(--text);
@@ -135,7 +140,10 @@ type Mode = 'welcome' | 'login' | 'register';
     @keyframes up { from { transform: translateY(40px); opacity: 0; } }
     .sheet-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
     .sheet-head h2 { margin: 2px 0 0; font-size: 1.45rem; }
-    .back { border: 0; background: var(--surface-2); color: var(--text); width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; flex: none; }
+    .back { border: 0; background: var(--surface-2); color: var(--text); width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; flex: none; transition: transform 0.18s var(--spring), background-color 0.15s; }
+    .back:hover { background: var(--brand-soft); }
+    .back:active { transform: scale(0.92); }
+    .back:focus-visible, .link:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
     .steps { margin: 4px 0 0; color: var(--text-2); font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
     .steps span { width: 22px; height: 6px; border-radius: 3px; background: var(--line); }
     .steps span.on { background: var(--brand); }
@@ -144,7 +152,8 @@ type Mode = 'welcome' | 'login' | 'register';
     .spinner { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgb(255 255 255 / 40%); border-top-color: #fff; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .switch { text-align: center; margin: 2px 0 0; color: var(--text-2); }
-    .link { border: 0; background: none; color: var(--brand); font: inherit; font-weight: 800; cursor: pointer; padding: 4px; }
+    .link { border: 0; background: none; color: var(--brand); font: inherit; font-weight: 800; cursor: pointer; padding: 4px 8px; min-height: 44px; border-radius: 10px; }
+    .link:hover { background: var(--brand-soft); color: var(--brand-strong); }
     .hint.error { color: var(--danger); }
     .meter { height: 6px; border-radius: 3px; background: var(--surface-2); margin: 8px 4px 0; overflow: hidden; }
     .meter span { display: block; height: 100%; border-radius: 3px; transition: width 0.25s; background: var(--danger); }
