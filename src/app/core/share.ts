@@ -3,7 +3,7 @@
  * Funciones puras: arman texto plano que luego va a la Web Share API, a WhatsApp o a un mailto.
  */
 import { kitchenQuantity } from './format';
-import { MealPlan, RecipeDetail, ShoppingList, UserRecipe } from './models';
+import { MealPlan, RecipeDetail, SHOPPING_CATEGORIES, ShoppingItem, ShoppingList, UserRecipe } from './models';
 
 const FIRMA = 'Hecho con La Sazón 🍲';
 
@@ -17,14 +17,44 @@ interface ShareableRecipe {
   steps: string[];
 }
 
+export interface ShoppingSection {
+  name: string;
+  items: ShoppingItem[];
+}
+
+/**
+ * Agrupa los productos por sección del mercado en el orden de SHOPPING_CATEGORIES (y por posición
+ * dentro de cada una). Lo que no trae categoría, o trae una desconocida, va a "Otros".
+ */
+export function groupByCategory(items: ShoppingItem[]): ShoppingSection[] {
+  const known = new Set(SHOPPING_CATEGORIES);
+  const sections = new Map<string, ShoppingItem[]>(SHOPPING_CATEGORIES.map((c) => [c, []]));
+  for (const i of [...items].sort((a, b) => a.position - b.position)) {
+    const c = i.category && known.has(i.category) ? i.category : 'Otros';
+    sections.get(c)!.push(i);
+  }
+  return [...sections].filter(([, list]) => list.length).map(([name, list]) => ({ name, items: list }));
+}
+
+/** Una lista sin categorías (las de antes) se ve igual que siempre, sin encabezados. */
+export function hasSections(sections: ShoppingSection[]): boolean {
+  return sections.length > 1 || (sections.length === 1 && sections[0].name !== 'Otros');
+}
+
 export function shoppingListText(list: ShoppingList): string {
-  const items = [...list.items]
-    .sort((a, b) => a.position - b.position)
-    .map((i) => {
-      const qty = i.quantity === null ? '' : kitchenQuantity(i.quantity, i.unit);
-      return `${i.checked ? '✓' : '•'} ${i.label}${qty ? ` — ${qty}` : ''}`;
-    });
-  return [`🧺 ${list.title}`, '', ...items, '', FIRMA].join('\n');
+  const line = (i: ShoppingItem) => {
+    const qty = i.quantity === null ? '' : kitchenQuantity(i.quantity, i.unit);
+    return `${i.checked ? '✓' : '•'} ${i.label}${qty ? ` — ${qty}` : ''}`;
+  };
+  const sections = groupByCategory(list.items);
+  const lines = [`🧺 ${list.title}`];
+  if (hasSections(sections)) {
+    for (const s of sections) lines.push('', `${s.name}:`, ...s.items.map(line));
+  } else {
+    lines.push('', ...sections.flatMap((s) => s.items.map(line)));
+  }
+  lines.push('', FIRMA);
+  return lines.join('\n');
 }
 
 export function catalogRecipeText(r: RecipeDetail): string {

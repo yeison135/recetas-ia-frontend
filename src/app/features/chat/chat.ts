@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
@@ -168,6 +168,8 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
 export class Chat implements OnInit, OnDestroy {
   private readonly api = inject(Api);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   /** Cancela la respuesta en curso al salir de la pantalla, empezar otra conversación o cerrar sesión. */
   private inFlight: AbortController | null = null;
   private readonly logoutSub = this.auth.loggedOut.subscribe(() => this.stop());
@@ -217,6 +219,13 @@ export class Chat implements OnInit, OnDestroy {
         this.conversationId = null;
         localStorage.removeItem(CONVERSATION_KEY);
       }
+    }
+    // Llegó con ?pregunta=… (p. ej. "Ver receta" de un plan): se envía una sola vez y se quita de la URL
+    // para que recargar o volver atrás no la repita.
+    const pregunta = this.route.snapshot.queryParamMap.get('pregunta')?.trim().slice(0, 500);
+    if (pregunta) {
+      await this.router.navigate([], { relativeTo: this.route, queryParams: { pregunta: null }, queryParamsHandling: 'merge', replaceUrl: true });
+      void this.send(pregunta);
     }
   }
 

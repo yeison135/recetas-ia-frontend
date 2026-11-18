@@ -1,5 +1,7 @@
 import { MealPlan, RecipeDetail, ShoppingList, UserRecipe } from './models';
-import { catalogRecipeText, mailtoUrl, mealPlanText, shoppingListText, userRecipeText, whatsappUrl } from './share';
+import {
+  catalogRecipeText, groupByCategory, hasSections, mailtoUrl, mealPlanText, shoppingListText, userRecipeText, whatsappUrl,
+} from './share';
 
 const list: ShoppingList = {
   id: 'l1',
@@ -34,6 +36,36 @@ describe('textos para compartir', () => {
     expect(shoppingListText(list)).toBe(
       ['🧺 Mercado: Ajiaco', '', '✓ Papa criolla — 1,5 kg', '• Guascas', '• Mazorca — 3 unidades', '', 'Hecho con La Sazón 🍲'].join('\n'),
     );
+  });
+
+  it('arma la lista por secciones del mercado, en orden y con lo desconocido en "Otros"', () => {
+    const plan: ShoppingList = {
+      id: 'l2',
+      title: 'Mercado: Semana italiana',
+      createdAt: '2026-11-17T10:00:00Z',
+      items: [
+        { id: 'a', label: 'Orégano', quantity: null, unit: null, checked: false, position: 1, category: 'Condimentos' },
+        { id: 'b', label: 'Tomate', quantity: 6, unit: 'unidad', checked: true, position: 2, category: 'Frutas y verduras' },
+        { id: 'c', label: 'Servilletas', quantity: null, unit: null, checked: false, position: 3, category: null },
+        { id: 'd', label: 'Cebolla', quantity: 2, unit: 'unidad', checked: false, position: 4, category: 'Frutas y verduras' },
+        { id: 'e', label: 'Velas', quantity: null, unit: null, checked: false, position: 5, category: 'Hogar' },
+      ],
+    };
+    expect(shoppingListText(plan)).toBe(
+      [
+        '🧺 Mercado: Semana italiana',
+        '', 'Frutas y verduras:', '✓ Tomate — 6 unidades', '• Cebolla — 2 unidades',
+        '', 'Condimentos:', '• Orégano',
+        '', 'Otros:', '• Servilletas', '• Velas',
+        '', 'Hecho con La Sazón 🍲',
+      ].join('\n'),
+    );
+    expect(groupByCategory(plan.items).map((s) => `${s.name}:${s.items.length}`)).toEqual(['Frutas y verduras:2', 'Condimentos:1', 'Otros:2']);
+  });
+
+  it('una lista sin categorías no lleva encabezados', () => {
+    expect(hasSections(groupByCategory(list.items))).toBe(false);
+    expect(groupByCategory([])).toEqual([]);
   });
 
   it('arma una receta propia con ingredientes y pasos numerados', () => {

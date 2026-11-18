@@ -52,6 +52,8 @@ export interface RecipeSummary {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   costLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   tags: string[];
+  /** Cocina del mundo (Colombiana, Italiana…); puede faltar en respuestas viejas. */
+  cuisine?: string | null;
 }
 
 export interface Ingredient {
@@ -94,7 +96,22 @@ export interface ShoppingItem {
   unit: string | null;
   checked: boolean;
   position: number;
+  /** Sección del mercado (ver SHOPPING_CATEGORIES); las listas viejas no la traen. */
+  category?: string | null;
 }
+
+/** Orden de las secciones del mercado; lo que no tiene categoría (o una desconocida) va a "Otros". */
+export const SHOPPING_CATEGORIES: readonly string[] = [
+  'Frutas y verduras',
+  'Proteínas',
+  'Lácteos y huevos',
+  'Granos y cereales',
+  'Panadería',
+  'Despensa',
+  'Condimentos',
+  'Bebidas',
+  'Otros',
+];
 
 export interface ShoppingList {
   id: string;
@@ -184,13 +201,25 @@ export interface MealPlanSummary {
   id: string;
   title: string;
   days: number;
+  /** Fecha del primer día (YYYY-MM-DD); los planes viejos no la traen. */
+  startDate?: string | null;
   createdAt: string;
+}
+
+export interface PlanIngredient {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  category: string;
 }
 
 export interface Meal {
   moment: string;
   dish: string;
   note: string | null;
+  /** Los planes viejos no traen cocina ni ingredientes. */
+  cuisine?: string | null;
+  ingredients?: PlanIngredient[];
 }
 
 export interface MealPlan {
@@ -198,5 +227,16 @@ export interface MealPlan {
   title: string;
   notes: string | null;
   days: { day: string; meals: Meal[] }[];
+  startDate?: string | null;
+  householdSize?: number | null;
   createdAt: string;
+}
+
+/** Pedido para que la IA arme un plan (tarda de 40 s a 2 min). */
+export interface GeneratePlanRequest {
+  days: number;
+  /** Vacía = cocinas variadas ("Sorpréndeme"). */
+  cuisines: string[];
+  notes?: string;
+  startDate?: string;
 }

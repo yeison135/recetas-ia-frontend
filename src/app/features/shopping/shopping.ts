@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { kitchenQuantity } from '../../core/format';
 import { ShoppingItem, ShoppingList, Store } from '../../core/models';
-import { shoppingListText } from '../../core/share';
+import { ShoppingSection, groupByCategory, hasSections, shoppingListText } from '../../core/share';
 import { ShareButtons } from '../../shared/share-buttons';
 
 @Component({
@@ -44,17 +44,32 @@ import { ShareButtons } from '../../shared/share-buttons';
               @if (!pending(l)) { · ¡Listo! 🎉 }</span>
             <div class="progress" aria-hidden="true"><span [style.width.%]="progress(l)"></span></div>
           </div>
-          <ul class="items">
-            @for (i of l.items; track i.id) {
-              <li>
-                <label class="item" [class.done]="i.checked">
-                  <input type="checkbox" class="check" [checked]="i.checked" (change)="toggle(l, i)" />
-                  <span class="name">{{ i.label }}</span>
-                  <span class="qty">{{ qty(i) }}</span>
-                </label>
-              </li>
-            }
-          </ul>
+          @let secs = sections(l);
+          @let titled = hasSections(secs);
+          @for (s of secs; track s.name) {
+            <div class="section" [class.titled]="titled">
+              @if (titled) {
+                <h3 class="sec-head" [class.all]="!pendingIn(s.items)">
+                  <span class="sec-ico" aria-hidden="true">{{ sectionIcon[s.name] }}</span>
+                  <span class="sec-name">{{ s.name }}</span>
+                  <span class="sec-count" [attr.aria-label]="(s.items.length - pendingIn(s.items)) + ' de ' + s.items.length + ' en el canasto'">
+                    {{ s.items.length - pendingIn(s.items) }}/{{ s.items.length }}
+                  </span>
+                </h3>
+              }
+              <ul class="items">
+                @for (i of s.items; track i.id) {
+                  <li>
+                    <label class="item" [class.done]="i.checked">
+                      <input type="checkbox" class="check" [checked]="i.checked" (change)="toggle(l, i)" />
+                      <span class="name">{{ i.label }}</span>
+                      <span class="qty">{{ qty(i) }}</span>
+                    </label>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
           <app-share-buttons [subject]="l.title" [text]="shareText(l)" />
         </section>
       }
@@ -111,6 +126,12 @@ import { ShareButtons } from '../../shared/share-buttons';
     .qty { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.88rem; color: var(--text-2); padding: 2px 10px; border-radius: 999px; background: var(--surface-2); }
     .qty:empty { display: none; }
     .item.done .qty { opacity: 0.6; }
+    .section.titled + .section.titled { margin-top: 6px; }
+    .sec-head { display: flex; align-items: center; gap: 10px; margin: 0 0 2px; padding: 6px 0; font-size: 1rem; border-bottom: 2px solid var(--line); }
+    .sec-ico { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; background: var(--surface-2); font-size: 1rem; }
+    .sec-name { flex: 1; }
+    .sec-count { font-family: var(--font); font-size: 0.82rem; font-weight: 800; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-variant-numeric: tabular-nums; transition: background-color 0.2s, color 0.2s; }
+    .sec-head.all .sec-count { background: var(--accent-soft); color: var(--accent); }
     .store { display: flex; gap: 12px; align-items: flex-start; }
     .store-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .kind-ico { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 14px; font-size: 1.3rem; background: var(--accent-soft); }
@@ -146,8 +167,30 @@ export class Shopping implements OnInit {
   }
 
   protected pending(l: ShoppingList): number {
-    return l.items.filter((i) => !i.checked).length;
+    return this.pendingIn(l.items);
   }
+
+  protected pendingIn(items: ShoppingItem[]): number {
+    return items.filter((i) => !i.checked).length;
+  }
+
+  /** Secciones del mercado en orden de recorrido; las listas sin categorías quedan en una sola sin título. */
+  protected sections(l: ShoppingList): ShoppingSection[] {
+    return groupByCategory(l.items);
+  }
+
+  protected readonly hasSections = hasSections;
+  protected readonly sectionIcon: Record<string, string> = {
+    'Frutas y verduras': '🥕',
+    'Proteínas': '🍗',
+    'Lácteos y huevos': '🥚',
+    'Granos y cereales': '🌾',
+    'Panadería': '🥖',
+    'Despensa': '🫙',
+    'Condimentos': '🧂',
+    'Bebidas': '🧃',
+    'Otros': '🛍️',
+  };
 
   protected shareText(l: ShoppingList): string {
     return shoppingListText(l);

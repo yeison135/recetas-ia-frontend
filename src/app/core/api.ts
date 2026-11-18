@@ -6,6 +6,7 @@ import { API_BASE } from './config';
 import {
   Allergy,
   Consent,
+  GeneratePlanRequest,
   MealPlan,
   MealPlanSummary,
   NewRecipe,
@@ -28,15 +29,20 @@ export class Api {
   private readonly base = `${API_BASE}/api`;
 
   // Recetas
-  searchRecipes(q: string, region?: string, maxMinutes?: number, page = 0): Observable<RecipeSummary[]> {
+  searchRecipes(q: string, region?: string, maxMinutes?: number, page = 0, cuisine?: string): Observable<RecipeSummary[]> {
     let params = new HttpParams().set('page', page);
     if (q) params = params.set('q', q);
+    if (cuisine) params = params.set('cuisine', cuisine);
     if (region) params = params.set('region', region);
     if (maxMinutes) params = params.set('maxMinutes', maxMinutes);
     return this.http.get<RecipeSummary[]>(`${this.base}/recipes`, { params });
   }
   regions(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/recipes/regions`);
+  }
+  /** Cocinas del catálogo (para filtrar). */
+  cuisines(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/recipes/cuisines`);
   }
   recipe(slug: string, servings?: number): Observable<RecipeDetail> {
     const params = servings ? new HttpParams().set('servings', servings) : undefined;
@@ -129,6 +135,18 @@ export class Api {
   }
   deleteMealPlan(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/me/meal-plans/${encodeURIComponent(id)}`);
+  }
+  /** Cocinas que se pueden pedir al generar un plan. */
+  planCuisines(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/meal-plans/cuisines`);
+  }
+  /** La IA arma el plan: tarda de 40 s a 2 min. 429 si hay demasiados en la hora, 503 si la IA no está. */
+  generateMealPlan(req: GeneratePlanRequest): Observable<MealPlan> {
+    return this.http.post<MealPlan>(`${this.base}/me/meal-plans/generate`, req);
+  }
+  /** Lista de mercado con los ingredientes de todo el plan (400 si el plan no los tiene). */
+  planShoppingList(id: string): Observable<ShoppingList> {
+    return this.http.post<ShoppingList>(`${this.base}/me/meal-plans/${encodeURIComponent(id)}/shopping-list`, null);
   }
 
   // Temporizadores

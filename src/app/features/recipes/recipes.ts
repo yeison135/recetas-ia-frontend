@@ -6,12 +6,13 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { COST_LABEL, DIFFICULTY_LABEL, MealPlanSummary, RecipeSummary, UserRecipe } from '../../core/models';
+import { PlanGenerator } from '../plans/plan-generator';
 
 type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
 
 @Component({
   selector: 'app-recipes',
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, RouterLink, DatePipe, PlanGenerator],
   template: `
     <div class="page stack">
       <header class="page-head enter">
@@ -52,6 +53,17 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
           }
         </div>
       </fieldset>
+      @if (cuisines().length) {
+        <fieldset class="group enter">
+          <legend class="sr-only">Cocina</legend>
+          <div class="choices scroll">
+            <label class="choice"><input type="radio" name="cuisine" value="" [ngModel]="cuisine" (ngModelChange)="setCuisine($event)" /><span><span aria-hidden="true">🌎</span> Todas las cocinas</span></label>
+            @for (c of cuisines(); track c) {
+              <label class="choice"><input type="radio" name="cuisine" [value]="c" [ngModel]="cuisine" (ngModelChange)="setCuisine($event)" /><span>{{ c }}</span></label>
+            }
+          </div>
+        </fieldset>
+      }
       <fieldset class="group enter">
         <legend class="sr-only">Tiempo</legend>
         <div class="choices scroll">
@@ -69,7 +81,7 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
         <div class="empty card">
           <span class="emo" aria-hidden="true">🥄</span>
           <p class="muted">No encontré recetas con esos filtros.</p>
-          @if (q || region || maxMinutes) { <button type="button" class="btn secondary" (click)="reset()">Quitar filtros</button> }
+          @if (q || region || cuisine || maxMinutes) { <button type="button" class="btn secondary" (click)="reset()">Quitar filtros</button> }
         </div>
       }
 
@@ -85,6 +97,7 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
               <h2>{{ r.title }}</h2>
               <p class="muted small">{{ r.summary }}</p>
               <div class="row">
+                @if (r.cuisine) { <span class="chip cuisine"><span aria-hidden="true">🌎</span> {{ r.cuisine }}</span> }
                 <span class="chip region">{{ r.region }}</span>
                 <span class="chip">⏱️ {{ r.prepMinutes + r.cookMinutes }} min</span>
                 <span class="chip">{{ difficulty[r.difficulty] }}</span>
@@ -114,6 +127,7 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
                 <h2>{{ r.title }}</h2>
                 <p class="muted small">{{ r.summary }}</p>
                 <div class="row">
+                  @if (r.cuisine) { <span class="chip cuisine"><span aria-hidden="true">🌎</span> {{ r.cuisine }}</span> }
                   <span class="chip region">{{ r.region }}</span>
                   <span class="chip">⏱️ {{ r.prepMinutes + r.cookMinutes }} min</span>
                   <span class="chip"><span aria-hidden="true">❤️</span> Favorita</span>
@@ -152,13 +166,13 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
       }
 
       @case ('planes') {
+        <app-plan-generator />
         @if (mineLoading()) {
           <div class="grid" aria-hidden="true"><div class="skeleton sk"></div></div>
         } @else if (!plans().length && !mineError()) {
           <div class="card empty-state enter">
             <span class="emo" aria-hidden="true">🗓️</span>
-            <p class="muted">Todavía no tienes planes de comida. Pídele a tu asistente: “arma mi plan de la semana”.</p>
-            <a class="btn secondary" routerLink="/cocina">Ir a la cocina</a>
+            <p class="muted">Todavía no tienes planes de comida. Toca “Crear plan semanal” o pídele a tu asistente: “arma mi plan de la semana”.</p>
           </div>
         }
         <ul class="grid">
@@ -168,7 +182,11 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
                 <h2>{{ p.title }}</h2>
                 <div class="row">
                   <span class="chip region">🗓️ {{ p.days }} {{ p.days === 1 ? 'día' : 'días' }}</span>
-                  <span class="chip">Creado el {{ p.createdAt | date: 'd MMM' }}</span>
+                  @if (p.startDate) {
+                    <span class="chip">Desde el {{ p.startDate | date: 'd MMM' }}</span>
+                  } @else {
+                    <span class="chip">Creado el {{ p.createdAt | date: 'd MMM' }}</span>
+                  }
                 </div>
               </a>
             </li>
@@ -204,6 +222,7 @@ type View = 'catalogo' | 'favoritas' | 'mias' | 'planes';
     .recipe h2 { font-size: 1.15rem; margin: 0; }
     .recipe p { margin: 0; flex: 1; }
     .chip.region { background: var(--brand-soft); color: var(--brand-strong); }
+    .chip.cuisine { background: var(--accent-soft); color: var(--accent); }
     .views > label > span { font-size: 0.8rem; padding: 6px 2px; }
     .empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 28px 16px; }
     .empty .emo { font-size: 2.4rem; }
@@ -235,6 +254,7 @@ export class Recipes {
 
   protected q = '';
   protected region = '';
+  protected cuisine = '';
   protected maxMinutes: number | undefined;
   protected readonly times = [
     { value: 0, label: 'Cualquier tiempo' },
@@ -244,6 +264,7 @@ export class Recipes {
   ];
   protected readonly items = signal<RecipeSummary[]>([]);
   protected readonly regions = signal<string[]>([]);
+  protected readonly cuisines = signal<string[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly difficulty = DIFFICULTY_LABEL;
@@ -268,6 +289,7 @@ export class Recipes {
       if (this.catalogLoaded) return;
       this.catalogLoaded = true;
       void firstValueFrom(this.api.regions()).then((r) => this.regions.set(r)).catch(() => undefined);
+      void firstValueFrom(this.api.cuisines()).then((c) => this.cuisines.set(c)).catch(() => undefined);
       void this.search();
       return;
     }
@@ -288,6 +310,11 @@ export class Recipes {
     void this.search();
   }
 
+  protected setCuisine(cuisine: string): void {
+    this.cuisine = cuisine;
+    void this.search();
+  }
+
   protected setTime(minutes: number): void {
     this.maxMinutes = Number(minutes) || undefined;
     void this.search();
@@ -301,6 +328,7 @@ export class Recipes {
   protected reset(): void {
     this.q = '';
     this.region = '';
+    this.cuisine = '';
     this.maxMinutes = undefined;
     void this.search();
   }
@@ -310,7 +338,7 @@ export class Recipes {
     this.loading.set(true);
     this.error.set('');
     try {
-      const found = await firstValueFrom(this.api.searchRecipes(this.q.trim(), this.region, this.maxMinutes));
+      const found = await firstValueFrom(this.api.searchRecipes(this.q.trim(), this.region, this.maxMinutes, 0, this.cuisine));
       if (mine === this.seq) this.items.set(found);
     } catch {
       if (mine === this.seq) this.error.set('No pude cargar las recetas.');
