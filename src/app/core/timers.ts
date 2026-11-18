@@ -49,6 +49,7 @@ export class TimerStore {
   /** Pedir el permiso de notificaciones solo tras un gesto del usuario (los navegadores lo exigen). */
   askPermission(): void {
     requestNotificationPermission();
+    unlockAudio();
   }
 
   async load(): Promise<void> {
@@ -105,6 +106,22 @@ async function cancelNative(t: CookingTimer): Promise<void> {
   await LocalNotifications.cancel({ notifications: [{ id: nativeId(t) }] });
 }
 
+let audioCtx: AudioContext | null = null;
+
+/**
+ * Los navegadores móviles solo dejan sonar audio creado tras un toque del usuario: el contexto se crea
+ * (o reanuda) en ese toque y se reutiliza cuando suena la alarma, aunque sea minutos después.
+ */
+function unlockAudio(): AudioContext | null {
+  try {
+    audioCtx ??= new AudioContext();
+    if (audioCtx.state === 'suspended') void audioCtx.resume();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
 function requestNotificationPermission(): void {
   if (IS_NATIVE) return;
   if ('Notification' in window && Notification.permission === 'default') {
@@ -130,7 +147,8 @@ async function notify(label: string): Promise<void> {
 
 function ring(label: string): void {
   try {
-    const ctx = new AudioContext();
+    const ctx = unlockAudio();
+    if (!ctx) throw new Error('sin audio');
     [0, 0.4, 0.8].forEach((offset) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();

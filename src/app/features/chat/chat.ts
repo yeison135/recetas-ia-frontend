@@ -260,6 +260,7 @@ export class Chat implements OnInit, OnDestroy {
     localStorage.removeItem(CONVERSATION_KEY);
     this.bubbles.set([]);
     this.inCall.set(true);
+    this.timers.askPermission(); // este toque desbloquea la alarma de los temporizadores en el celular
     this.readAloud = false;
     void this.callLoop();
   }
