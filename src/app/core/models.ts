@@ -13,6 +13,7 @@ export interface Profile {
   budgetLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   city: string | null;
   regionPreference: string | null;
+  avatar: string;
 }
 
 export interface Allergy {

@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 
 import { AuthService } from './core/auth';
+import { ProfileStore } from './core/profile-store';
 import { TimerStore, formatSeconds } from './core/timers';
 
 @Component({
@@ -99,6 +100,7 @@ import { TimerStore, formatSeconds } from './core/timers';
 })
 export class App {
   protected readonly timers = inject(TimerStore);
+  private readonly profile = inject(ProfileStore);
   private readonly auth = inject(AuthService);
   private readonly url = toSignal(
     inject(Router).events.pipe(
@@ -115,6 +117,7 @@ export class App {
     effect(() => {
       if (this.auth.isLoggedIn()) {
         void this.timers.load().catch(() => undefined);
+        void this.profile.load();
       }
     });
   }

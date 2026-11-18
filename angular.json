@@ -30,6 +30,8 @@
               }
             ],
             "styles": [
+              "node_modules/@fontsource-variable/nunito/index.css",
+              "node_modules/@fontsource-variable/fredoka/index.css",
               "src/styles.scss"
             ]
           },

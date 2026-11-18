@@ -10,7 +10,8 @@ import { ChatStream, ChatStreamEvent } from '../../core/chat-stream';
 import { CookingTimer, ShoppingList } from '../../core/models';
 import { TimerStore, formatSeconds } from '../../core/timers';
 import { VoiceService } from '../../core/voice';
-import { Face, FaceState } from './face';
+import { ProfileStore } from '../../core/profile-store';
+import { Avatar, AvatarState } from '../../shared/avatar';
 
 interface Bubble {
   role: 'user' | 'assistant' | 'event';
@@ -25,11 +26,11 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
 
 @Component({
   selector: 'app-chat',
-  imports: [FormsModule, RouterLink, Face],
+  imports: [FormsModule, RouterLink, Avatar],
   template: `
     <div class="page chat">
       <header class="hero" [class.calling]="inCall()">
-        <app-face [state]="faceState()" />
+        <app-avatar [kind]="profile.avatar()" [state]="faceState()" [size]="inCall() ? 170 : 132" />
         <p class="status muted" aria-live="polite">{{ statusText() }}</p>
         @if (inCall() && voice.interim()) {
           <p class="interim">“{{ voice.interim() }}”</p>
@@ -138,6 +139,7 @@ export class Chat implements OnInit, OnDestroy {
   private readonly stream = inject(ChatStream);
   private readonly timers = inject(TimerStore);
   protected readonly voice = inject(VoiceService);
+  protected readonly profile = inject(ProfileStore);
 
   protected readonly bubbles = signal<Bubble[]>([]);
   protected readonly thinking = signal(false);
@@ -153,7 +155,7 @@ export class Chat implements OnInit, OnDestroy {
     'Hazme la lista de mercado para un sancocho',
   ];
 
-  protected readonly faceState = computed<FaceState>(() =>
+  protected readonly faceState = computed<AvatarState>(() =>
     this.voice.listening() ? 'listening' : this.thinking() ? 'thinking' : this.voice.speaking() ? 'speaking' : 'idle',
   );
 
@@ -162,7 +164,7 @@ export class Chat implements OnInit, OnDestroy {
       case 'listening': return 'Te escucho…';
       case 'thinking': return 'Déjame pensar…';
       case 'speaking': return 'Hablando…';
-      default: return 'La Sazón';
+      default: return this.profile.avatarName();
     }
   });
 

@@ -5,15 +5,23 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { AvatarKind, avatarInfo } from '../../core/avatars';
+import { ProfileStore } from '../../core/profile-store';
+import { AvatarPicker } from '../../shared/avatar-picker';
 import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '../../core/models';
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule],
+  imports: [FormsModule, AvatarPicker],
   template: `
     <div class="page stack">
       <h1>Tu perfil</h1>
       @if (message()) { <p class="notice" role="status">{{ message() }}</p> }
+
+      <section class="card stack">
+        <h2>Tu asistente</h2>
+        <app-avatar-picker [selected]="store.avatar()" (selectedChange)="changeAvatar($event)" />
+      </section>
 
       @if (profile(); as p) {
         <form class="card stack" (ngSubmit)="saveProfile()">
@@ -140,6 +148,7 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
 export class ProfilePage implements OnInit {
   private readonly api = inject(Api);
   protected readonly auth = inject(AuthService);
+  protected readonly store = inject(ProfileStore);
 
   protected readonly profile = signal<Profile | null>(null);
   protected readonly consents = signal<Consent[]>([]);
@@ -175,6 +184,20 @@ export class ProfilePage implements OnInit {
 
   protected label(code: string): string {
     return ALLERGENS.find((a) => a.code === code)?.label ?? code;
+  }
+
+  protected async changeAvatar(kind: AvatarKind): Promise<void> {
+    const p = this.profile();
+    if (!p) return;
+    const previous = this.store.avatar();
+    this.store.avatar.set(kind);
+    try {
+      this.profile.set(await firstValueFrom(this.api.updateProfile({ ...p, avatar: kind })));
+      this.flash(`Listo, ahora te acompaña ${avatarInfo(kind).name}.`);
+    } catch {
+      this.store.avatar.set(previous);
+      this.flash('No pude cambiar el avatar.');
+    }
   }
 
   protected async saveProfile(): Promise<void> {

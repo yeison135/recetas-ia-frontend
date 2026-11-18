@@ -34,11 +34,11 @@ export class AuthService {
     await this.accept(res);
   }
 
-  async register(email: string, password: string, displayName: string): Promise<void> {
+  async register(email: string, password: string, displayName: string, avatar: string): Promise<void> {
     const res = await firstValueFrom(
       this.http.post<TokenResponse>(
         `${API_BASE}/api/auth/register`,
-        { email, password, displayName },
+        { email, password, displayName, avatar },
         await this.authOptions(),
       ),
     );
