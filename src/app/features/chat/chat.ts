@@ -28,9 +28,19 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
   imports: [FormsModule, RouterLink, Face],
   template: `
     <div class="page chat">
-      <header class="hero">
+      <header class="hero" [class.calling]="inCall()">
         <app-face [state]="faceState()" />
         <p class="status muted" aria-live="polite">{{ statusText() }}</p>
+        @if (inCall() && voice.interim()) {
+          <p class="interim">“{{ voice.interim() }}”</p>
+        }
+        @if (voice.canListen && voice.canSpeak) {
+          @if (!inCall()) {
+            <button type="button" class="btn call" (click)="startCall()">📞 Conversar por voz</button>
+          } @else {
+            <button type="button" class="btn danger call" (click)="endCall()">Colgar</button>
+          }
+        }
       </header>
 
       <section class="messages" aria-live="polite" aria-label="Conversación">
@@ -90,6 +100,9 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
     .chat { display: flex; flex-direction: column; min-height: calc(100dvh - var(--nav-h)); padding-bottom: calc(var(--nav-h) + 12px); }
     .hero { text-align: center; padding-top: 8px; }
     .status { min-height: 1.5em; margin: 8px 0 0; font-size: 0.95rem; }
+    .call { margin-top: 10px; }
+    .interim { margin: 6px auto 0; max-width: 32ch; font-style: italic; color: var(--text-2); }
+    .hero.calling { position: sticky; top: 0; z-index: 4; background: var(--bg); padding-bottom: 8px; }
     .messages { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 16px 0; }
     .empty { text-align: center; color: var(--text-2); }
     .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
@@ -182,6 +195,7 @@ export class Chat implements OnInit, OnDestroy {
   }
 
   private stop(): void {
+    this.inCall.set(false);
     this.inFlight?.abort();
     this.inFlight = null;
     this.voice.stopListening();
@@ -228,9 +242,62 @@ export class Chat implements OnInit, OnDestroy {
     this.bubbles.set([]);
   }
 
-  async send(text: string): Promise<void> {
+  // ---------------------------------------------------------------- modo conversación
+
+  /** Rondas seguidas sin oír nada antes de colgar solo. */
+  private static readonly MAX_SILENT_ROUNDS = 3;
+  protected readonly inCall = signal(false);
+
+  /**
+   * Conversación manos libres: un toque para empezar (los navegadores lo exigen para el micrófono)
+   * y luego escuchar → responder en voz alta → volver a escuchar, hasta colgar.
+   */
+  protected async startCall(): Promise<void> {
+    if (!(await this.ensureVoiceConsent())) return;
+    this.stop();
+    // Conversación de canal VOICE: el asistente responde más corto, pensado para oírse.
+    this.conversationId = null;
+    localStorage.removeItem(CONVERSATION_KEY);
+    this.bubbles.set([]);
+    this.inCall.set(true);
+    this.readAloud = false;
+    void this.callLoop();
+  }
+
+  protected endCall(): void {
+    this.inCall.set(false);
+    this.stop();
+  }
+
+  private async callLoop(): Promise<void> {
+    await this.voice.speak('¡Hola! Te escucho. ¿Qué cocinamos hoy?');
+    let silent = 0;
+    while (this.inCall()) {
+      const heard = await this.voice.listenOnce();
+      if (!this.inCall()) break;
+      if (heard.error) {
+        this.bubbles.update((b) => [...b, { role: 'assistant', text: heard.error, error: true }]);
+        this.endCall();
+        break;
+      }
+      if (!heard.text) {
+        if (++silent >= Chat.MAX_SILENT_ROUNDS) {
+          this.bubbles.update((b) => [...b, { role: 'assistant', text: 'No te escuché por un rato, así que colgué. Toca "Conversar por voz" para seguir.' }]);
+          this.endCall();
+        }
+        continue;
+      }
+      silent = 0;
+      const answer = await this.send(heard.text, 'VOICE');
+      if (answer && this.inCall()) await this.voice.speak(answer);
+    }
+  }
+
+  /** Envía un mensaje y devuelve el texto de la respuesta (si llegó). */
+  async send(text: string, channel: 'TEXT' | 'VOICE' = 'TEXT'): Promise<string | null> {
     const msg = text.trim();
-    if (!msg || this.thinking()) return;
+    if (!msg || this.thinking()) return null;
+    let answer: string | null = null;
     this.draft = '';
     this.timers.askPermission(); // con el gesto del usuario, por si la IA inicia un temporizador
     this.bubbles.update((b) => [...b, { role: 'user', text: msg }]);
@@ -239,8 +306,11 @@ export class Chat implements OnInit, OnDestroy {
     const controller = new AbortController();
     this.inFlight = controller;
     try {
-      const id = await this.ensureConversation();
-      await this.stream.send(id, msg, (e) => this.onEvent(e), controller.signal);
+      const id = await this.ensureConversation(channel);
+      await this.stream.send(id, msg, (e) => {
+        if (e.type === 'text') answer = e.data.text;
+        this.onEvent(e);
+      }, controller.signal);
     } catch {
       if (!controller.signal.aborted) {
         this.bubbles.update((b) => [...b, { role: 'assistant', text: 'No pude conectarme con la cocina. Revisa tu conexión.', error: true }]);
@@ -250,13 +320,14 @@ export class Chat implements OnInit, OnDestroy {
       this.thinking.set(false);
       this.scrollDown();
     }
+    return answer;
   }
 
   private onEvent(e: ChatStreamEvent): void {
     switch (e.type) {
       case 'text':
         this.bubbles.update((b) => [...b, { role: 'assistant', text: e.data.text }]);
-        if (this.readAloud) this.voice.speak(e.data.text);
+        if (this.readAloud && !this.inCall()) void this.voice.speak(e.data.text);
         break;
       case 'recipe':
         this.bubbles.update((b) => [...b, { role: 'event', recipe: e.data }]);
@@ -275,9 +346,9 @@ export class Chat implements OnInit, OnDestroy {
     this.scrollDown();
   }
 
-  private async ensureConversation(): Promise<string> {
+  private async ensureConversation(channel: 'TEXT' | 'VOICE'): Promise<string> {
     if (!this.conversationId) {
-      const { id } = await firstValueFrom(this.api.createConversation('TEXT'));
+      const { id } = await firstValueFrom(this.api.createConversation(channel));
       this.conversationId = id;
       localStorage.setItem(CONVERSATION_KEY, id);
     }
