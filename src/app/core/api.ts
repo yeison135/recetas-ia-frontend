@@ -6,6 +6,9 @@ import { API_BASE } from './config';
 import {
   Allergy,
   Consent,
+  MealPlan,
+  MealPlanSummary,
+  NewRecipe,
   CookedEntry,
   Conversation,
   CookingTimer,
@@ -16,6 +19,7 @@ import {
   ShoppingList,
   Store,
   StoredMessage,
+  UserRecipe,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -64,6 +68,15 @@ export class Api {
   deleteAllergy(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/me/allergies/${id}`);
   }
+  healthConditions(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/me/health-conditions`);
+  }
+  addHealthCondition(code: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/me/health-conditions/${encodeURIComponent(code)}`, null);
+  }
+  removeHealthCondition(code: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/health-conditions/${encodeURIComponent(code)}`);
+  }
   preferences(): Observable<Preference[]> {
     return this.http.get<Preference[]>(`${this.base}/me/preferences`);
   }
@@ -81,6 +94,41 @@ export class Api {
   }
   markCooked(slug: string, servings?: number, rating?: number): Observable<void> {
     return this.http.post<void>(`${this.base}/me/history`, { slug, servings, rating });
+  }
+
+  // Favoritas, recetas propias y planes de comida
+  favorites(): Observable<RecipeSummary[]> {
+    return this.http.get<RecipeSummary[]>(`${this.base}/me/favorites`);
+  }
+  isFavorite(slug: string): Observable<{ favorite: boolean }> {
+    return this.http.get<{ favorite: boolean }>(`${this.base}/me/favorites/${encodeURIComponent(slug)}`);
+  }
+  addFavorite(slug: string): Observable<void> {
+    return this.http.put<void>(`${this.base}/me/favorites/${encodeURIComponent(slug)}`, null);
+  }
+  removeFavorite(slug: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/favorites/${encodeURIComponent(slug)}`);
+  }
+  myRecipes(): Observable<UserRecipe[]> {
+    return this.http.get<UserRecipe[]>(`${this.base}/me/recipes`);
+  }
+  myRecipe(id: string): Observable<UserRecipe> {
+    return this.http.get<UserRecipe>(`${this.base}/me/recipes/${encodeURIComponent(id)}`);
+  }
+  createRecipe(r: NewRecipe): Observable<UserRecipe> {
+    return this.http.post<UserRecipe>(`${this.base}/me/recipes`, r);
+  }
+  deleteRecipe(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/recipes/${encodeURIComponent(id)}`);
+  }
+  mealPlans(): Observable<MealPlanSummary[]> {
+    return this.http.get<MealPlanSummary[]>(`${this.base}/me/meal-plans`);
+  }
+  mealPlan(id: string): Observable<MealPlan> {
+    return this.http.get<MealPlan>(`${this.base}/me/meal-plans/${encodeURIComponent(id)}`);
+  }
+  deleteMealPlan(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/me/meal-plans/${encodeURIComponent(id)}`);
   }
 
   // Temporizadores

@@ -8,7 +8,7 @@ import { AuthService } from '../../core/auth';
 import { AvatarKind, avatarInfo } from '../../core/avatars';
 import { ProfileStore } from '../../core/profile-store';
 import { AvatarPicker } from '../../shared/avatar-picker';
-import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '../../core/models';
+import { ALLERGENS, Allergy, Consent, CookedEntry, HEALTH_CONDITIONS, Preference, Profile } from '../../core/models';
 
 @Component({
   selector: 'app-profile',
@@ -83,6 +83,36 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
             }
           </button>
         </form>
+
+        <form class="card stack enter" (ngSubmit)="saveDiet()">
+          <h2 class="card-title"><span class="ico menta" aria-hidden="true">🥗</span>Tu alimentación</h2>
+          <fieldset class="group">
+            <legend>Tipo de alimentación</legend>
+            <div class="seg two">
+              @for (o of diets; track o.value) {
+                <label><input type="radio" name="diet" [value]="o.value" [(ngModel)]="p.dietType" (ngModelChange)="dietEdited()" />
+                  <span><span class="emo" aria-hidden="true">{{ o.emo }}</span>{{ o.label }}</span></label>
+              }
+            </div>
+          </fieldset>
+          <fieldset class="group">
+            <legend>Tu objetivo</legend>
+            <div class="choices">
+              @for (o of goals; track o.value) {
+                <label class="choice"><input type="radio" name="goal" [value]="o.value" [(ngModel)]="p.goal" (ngModelChange)="dietEdited()" />
+                  <span><span aria-hidden="true">{{ o.emo }}</span>{{ o.label }}</span></label>
+              }
+            </div>
+          </fieldset>
+          <p class="muted small">Tu asistente lo tiene en cuenta al sugerirte platos y planes. El catálogo oculta las recetas con carne o pescado si no las comes.</p>
+          <button class="btn block" type="submit" [class.saved]="dietState() === 'saved'" [disabled]="dietState() === 'saving'">
+            @switch (dietState()) {
+              @case ('saving') { <span class="spinner" aria-hidden="true"></span> Guardando… }
+              @case ('saved') { ✓ ¡Guardado! }
+              @default { {{ dietDirty() ? 'Guardar cambios' : 'Guardar' }} }
+            }
+          </button>
+        </form>
       } @else {
         <div class="card stack" aria-hidden="true">
           <div class="skeleton" style="height: 38px; width: 50%"></div>
@@ -93,20 +123,21 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
       }
 
       <section class="card stack enter">
-        <h2 class="card-title"><span class="ico" aria-hidden="true">🛡️</span>Alergias e intolerancias</h2>
+        <h2 class="card-title"><span class="ico" aria-hidden="true">🛡️</span>Tu salud</h2>
         @if (!healthConsent()) {
           <div class="consent">
             <p>
-              Las alergias son <strong>datos de salud</strong> (datos sensibles según la Ley 1581 de 2012). Para guardarlas y
-              ocultarte recetas que te hagan daño necesitamos tu autorización expresa.
+              Las alergias y condiciones de salud son <strong>datos de salud</strong> (datos sensibles según la Ley 1581 de 2012). Para guardarlas y
+              ocultarte recetas que te hagan daño o adaptar las sugerencias necesitamos tu autorización expresa.
             </p>
-            <p class="muted small">Puedes retirarla cuando quieras y se borrarán tus alergias.</p>
+            <p class="muted small">Puedes retirarla cuando quieras y se borrarán tus alergias y condiciones.</p>
           </div>
           <button type="button" class="btn block" (click)="grantHealth()" [disabled]="busy() === 'consent'">
             @if (busy() === 'consent') { <span class="spinner" aria-hidden="true"></span> }
             Autorizo el tratamiento de mis datos de salud
           </button>
         } @else {
+          <h3 class="sub">Alergias e intolerancias</h3>
           <ul class="rows list">
             @for (a of allergies(); track a.id) {
               <li>
@@ -142,7 +173,19 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
             </div>
           }
           <p class="muted small">Igual revisa siempre las etiquetas: La Sazón ayuda, pero no reemplaza tu cuidado ni el de un médico.</p>
-          <button type="button" class="btn danger small" (click)="revokeHealth()">Retirar autorización y borrar mis alergias</button>
+
+          <fieldset class="group conditions">
+            <legend class="sub">Condiciones de salud</legend>
+            <p class="muted small">Marca las que apliquen y tu asistente adaptará sus sugerencias.</p>
+            <div class="choices">
+              @for (c of conditionList; track c.code) {
+                <label class="choice"><input type="checkbox" [checked]="hasCondition(c.code)" [disabled]="busyCondition() === c.code"
+                  (change)="toggleCondition(c.code, c.label)" /><span>{{ c.label }}</span></label>
+              }
+            </div>
+          </fieldset>
+          <p class="notice"><span aria-hidden="true">🩺</span> La Sazón da sugerencias de cocina; no reemplaza a tu médico o nutricionista.</p>
+          <button type="button" class="btn danger small" (click)="revokeHealth()">Retirar autorización y borrar mis datos de salud</button>
         }
       </section>
 
@@ -205,6 +248,10 @@ import { ALLERGENS, Allergy, Consent, CookedEntry, Preference, Profile } from '.
   `,
   styles: `
     .card { gap: 16px; }
+    .seg.two { display: grid; grid-template-columns: 1fr 1fr; }
+    .sub { margin: 0; font-size: 1rem; font-weight: 800; font-family: var(--font); }
+    .conditions > p { margin: -2px 0 10px; }
+    .notice { margin: 0; }
     .household { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .household > div:first-child { display: flex; flex-direction: column; }
     .group-label { font-weight: 700; font-size: 0.95rem; }
@@ -240,6 +287,25 @@ export class ProfilePage implements OnInit {
   protected readonly saveState = signal<'idle' | 'saving' | 'saved'>('idle');
   protected readonly dirty = signal(false);
   protected readonly busy = signal<'' | 'consent' | 'allergy'>('');
+  protected readonly dietState = signal<'idle' | 'saving' | 'saved'>('idle');
+  protected readonly dietDirty = signal(false);
+  protected readonly conditions = signal<string[]>([]);
+  protected readonly busyCondition = signal('');
+  protected readonly conditionList = HEALTH_CONDITIONS;
+  protected readonly diets = [
+    { value: 'OMNIVORE', label: 'Como de todo', emo: '🍗' },
+    { value: 'VEGETARIAN', label: 'Vegetariana', emo: '🥕' },
+    { value: 'VEGAN', label: 'Vegana', emo: '🌱' },
+    { value: 'PESCATARIAN', label: 'Pescetariana', emo: '🐟' },
+  ];
+  protected readonly goals = [
+    { value: 'NONE', label: 'Sin objetivo especial', emo: '😊' },
+    { value: 'HEALTHY', label: 'Comer más sano', emo: '🥗' },
+    { value: 'LOSE_WEIGHT', label: 'Bajar de peso', emo: '⚖️' },
+    { value: 'GAIN_MUSCLE', label: 'Ganar músculo', emo: '💪' },
+    { value: 'MORE_ENERGY', label: 'Más energía', emo: '⚡' },
+  ];
+  private dietTimer?: ReturnType<typeof setTimeout>;
   protected readonly levels = [
     { value: 'BEGINNER', label: 'Aprendiendo', emo: '🌱' },
     { value: 'INTERMEDIATE', label: 'Me defiendo', emo: '🍳' },
@@ -277,7 +343,7 @@ export class ProfilePage implements OnInit {
       firstValueFrom(this.api.consents()),
       firstValueFrom(this.api.preferences()),
     ]);
-    this.profile.set(p);
+    this.profile.set(withDefaults(p));
     this.consents.set(c);
     this.preferences.set(prefs);
     void firstValueFrom(this.api.history()).then((h) => this.history.set(h)).catch(() => undefined);
@@ -294,7 +360,7 @@ export class ProfilePage implements OnInit {
     const previous = this.store.avatar();
     this.store.avatar.set(kind);
     try {
-      this.profile.set(await firstValueFrom(this.api.updateProfile({ ...p, avatar: kind })));
+      this.profile.set(withDefaults(await firstValueFrom(this.api.updateProfile({ ...p, avatar: kind }))));
       this.flash(`Listo, ahora te acompaña ${avatarInfo(kind).name}.`);
     } catch {
       this.store.avatar.set(previous);
@@ -317,7 +383,7 @@ export class ProfilePage implements OnInit {
     if (!p || this.saveState() === 'saving') return;
     this.saveState.set('saving');
     try {
-      this.profile.set(await firstValueFrom(this.api.updateProfile({ ...p, householdSize: Number(p.householdSize) })));
+      this.profile.set(withDefaults(await firstValueFrom(this.api.updateProfile({ ...p, householdSize: Number(p.householdSize) }))));
       this.dirty.set(false);
       this.saveState.set('saved');
       clearTimeout(this.savedTimer);
@@ -326,6 +392,48 @@ export class ProfilePage implements OnInit {
     } catch {
       this.saveState.set('idle');
       this.flash('Revisa los datos del perfil.', false);
+    }
+  }
+
+  protected dietEdited(): void {
+    this.dietDirty.set(true);
+    if (this.dietState() === 'saved') this.dietState.set('idle');
+  }
+
+  protected async saveDiet(): Promise<void> {
+    const p = this.profile();
+    if (!p || this.dietState() === 'saving') return;
+    this.dietState.set('saving');
+    try {
+      this.profile.set(withDefaults(await firstValueFrom(this.api.updateProfile({ ...p, householdSize: Number(p.householdSize) }))));
+      this.dietDirty.set(false);
+      this.dirty.set(false); // el PUT guarda el perfil completo
+      this.dietState.set('saved');
+      clearTimeout(this.dietTimer);
+      this.dietTimer = setTimeout(() => this.dietState.set('idle'), 2200);
+      this.flash('Alimentación guardada.');
+    } catch {
+      this.dietState.set('idle');
+      this.flash('No pude guardar tu alimentación.', false);
+    }
+  }
+
+  protected hasCondition(code: string): boolean {
+    return this.conditions().includes(code);
+  }
+
+  protected async toggleCondition(code: string, label: string): Promise<void> {
+    const on = !this.hasCondition(code);
+    this.conditions.update((cs) => (on ? [...cs, code] : cs.filter((x) => x !== code)));
+    this.busyCondition.set(code);
+    try {
+      await firstValueFrom(on ? this.api.addHealthCondition(code) : this.api.removeHealthCondition(code));
+      this.flash(on ? `${label}: tu asistente lo tendrá en cuenta.` : `${label} quitada.`);
+    } catch {
+      this.conditions.update((cs) => (on ? cs.filter((x) => x !== code) : [...cs, code]));
+      this.flash('No pude actualizar tus condiciones de salud.', false);
+    } finally {
+      this.busyCondition.set('');
     }
   }
 
@@ -344,11 +452,12 @@ export class ProfilePage implements OnInit {
   }
 
   protected async revokeHealth(): Promise<void> {
-    if (!confirm('Se borrarán tus alergias registradas. ¿Continuar?')) return;
+    if (!confirm('Se borrarán tus alergias y condiciones de salud registradas. ¿Continuar?')) return;
     await firstValueFrom(this.api.revokeConsent('HEALTH_DATA'));
     this.consents.set(await firstValueFrom(this.api.consents()));
     this.allergies.set([]);
-    this.flash('Autorización retirada y alergias borradas.');
+    this.conditions.set([]);
+    this.flash('Autorización retirada y datos de salud borrados.');
   }
 
   protected async addAllergy(): Promise<void> {
@@ -409,7 +518,12 @@ export class ProfilePage implements OnInit {
   }
 
   private async loadAllergies(): Promise<void> {
-    this.allergies.set(await firstValueFrom(this.api.allergies()));
+    const [allergies, conditions] = await Promise.all([
+      firstValueFrom(this.api.allergies()),
+      firstValueFrom(this.api.healthConditions()).catch(() => [] as string[]),
+    ]);
+    this.allergies.set(allergies);
+    this.conditions.set(conditions);
     // Sin preselección: la persona elige el alérgeno a conciencia.
     this.newAllergen = '';
   }
@@ -420,4 +534,9 @@ export class ProfilePage implements OnInit {
     clearTimeout(this.flashTimer);
     this.flashTimer = setTimeout(() => this.message.set(''), 3200);
   }
+}
+
+/** Perfiles antiguos pueden no traer los campos de alimentación. */
+function withDefaults(p: Profile): Profile {
+  return { ...p, dietType: p.dietType ?? 'OMNIVORE', goal: p.goal ?? 'NONE' };
 }

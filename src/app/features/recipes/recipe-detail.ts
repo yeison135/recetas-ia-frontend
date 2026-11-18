@@ -5,12 +5,14 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { COST_LABEL, DIFFICULTY_LABEL, Ingredient, RecipeDetail } from '../../core/models';
 import { kitchenQuantity } from '../../core/format';
+import { catalogRecipeText } from '../../core/share';
 import { TimerStore, formatSeconds } from '../../core/timers';
 import { VoiceService } from '../../core/voice';
+import { ShareButtons } from '../../shared/share-buttons';
 
 @Component({
   selector: 'app-recipe-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, ShareButtons],
   template: `
     <div class="page stack">
       <a routerLink="/recetas" class="back"><span aria-hidden="true">←</span> Recetas</a>
@@ -20,7 +22,13 @@ import { VoiceService } from '../../core/voice';
       </div>
       @if (recipe(); as r) {
         <header class="enter">
-          <span class="chip region">{{ r.region }}</span>
+          <div class="top">
+            <span class="chip region">{{ r.region }}</span>
+            <button type="button" class="btn secondary fav" [class.on]="favorite()" [attr.aria-pressed]="favorite()"
+              (click)="toggleFavorite()" [disabled]="favBusy()">
+              <span class="heart" aria-hidden="true">{{ favorite() ? '❤️' : '🤍' }}</span> Favorita
+            </button>
+          </div>
           <h1>{{ r.title }}</h1>
           <p class="muted">{{ r.summary }}</p>
           <dl class="facts">
@@ -116,6 +124,10 @@ import { VoiceService } from '../../core/voice';
             </ol>
           }
         </section>
+        <section class="card stack enter">
+          <h2 class="card-title"><span class="ico" aria-hidden="true">📤</span>Compártela</h2>
+          <app-share-buttons [subject]="r.title" [text]="shareText()" />
+        </section>
         <section class="card stack cooked enter">
           @if (!cooked()) {
             <h2 class="card-title"><span class="ico lavanda" aria-hidden="true">⭐</span>¿Ya la cocinaste?</h2>
@@ -135,12 +147,10 @@ import { VoiceService } from '../../core/voice';
     </div>
   `,
   styles: `
-    .back {
-      align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px 0 6px;
-      border-radius: 999px; text-decoration: none; font-weight: 700; color: var(--text); transition: background-color 0.15s;
-    }
-    .back span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); color: var(--brand); }
-    .back:hover { background: var(--surface-2); }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .fav { padding: 8px 16px; }
+    .fav.on { background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); color: var(--brand-strong); }
+    .fav.on .heart { animation: pop 0.4s var(--spring); }
     header h1 { font-size: 1.9rem; margin: 8px 0 4px; }
     header > p { margin: 0 0 12px; }
     .chip.region { background: var(--brand-soft); color: var(--brand-strong); }
@@ -151,21 +161,10 @@ import { VoiceService } from '../../core/voice';
     .servings { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
     .stepper .count { padding: 0 4px; color: var(--text-2); font-weight: 600; font-size: 0.9rem; }
     .stepper .count strong { color: var(--text); }
-    .ingredients { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
-    .ingredients li { display: grid; grid-template-columns: 7.5rem 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
-    .ingredients li:last-child { border-bottom: 0; }
-    .ingredients .qty { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--brand-strong); }
     .ingredients .optional { opacity: 0.8; }
     .subs { border-radius: var(--radius-sm); background: var(--surface-2); padding: 0 14px; }
     .subs summary { min-height: 48px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
     .subs ul { margin: 0; padding: 0 0 12px 1.1rem; display: flex; flex-direction: column; gap: 4px; }
-    .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-    .steps li { display: flex; gap: 12px; align-items: flex-start; }
-    .steps .num {
-      display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%;
-      background: var(--brand); color: var(--brand-ink); font-family: var(--font-display); font-weight: 600;
-    }
-    .steps li p { margin: 4px 0 8px; }
     .steps .timer { min-height: 44px; }
     .cook { display: flex; flex-direction: column; gap: 12px; border-width: 2px; border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
     .cook-head p { margin: 0 0 6px; font-weight: 700; }
@@ -205,10 +204,32 @@ export class RecipeDetailPage implements OnInit {
   protected readonly cost = COST_LABEL;
   protected readonly format = formatSeconds;
   protected readonly title = computed(() => this.recipe()?.title ?? '');
+  protected readonly shareText = computed(() => {
+    const r = this.recipe();
+    return r ? catalogRecipeText(r) : '';
+  });
+  protected readonly favorite = signal(false);
+  protected readonly favBusy = signal(false);
 
   ngOnInit(): void {
     const s = Number(this.porciones());
     void this.load(Number.isInteger(s) && s > 0 ? s : undefined);
+    void firstValueFrom(this.api.isFavorite(this.slug())).then((f) => this.favorite.set(f.favorite)).catch(() => undefined);
+  }
+
+  protected async toggleFavorite(): Promise<void> {
+    const next = !this.favorite();
+    this.favorite.set(next);
+    this.favBusy.set(true);
+    try {
+      await firstValueFrom(next ? this.api.addFavorite(this.slug()) : this.api.removeFavorite(this.slug()));
+      this.flash(next ? 'Guardada en tus favoritas.' : 'Quitada de tus favoritas.');
+    } catch {
+      this.favorite.set(!next);
+      this.flash('No pude actualizar tus favoritas.');
+    } finally {
+      this.favBusy.set(false);
+    }
   }
 
   protected quantity(i: Ingredient): string {

@@ -19,6 +19,9 @@ interface Bubble {
   recipe?: { slug: string; title: string; servings: number };
   timer?: CookingTimer;
   list?: ShoppingList;
+  saved?: { id: string; title: string };
+  plan?: { id: string; title: string; days: number };
+  favorite?: { slug: string; title: string };
   error?: boolean;
 }
 
@@ -71,6 +74,15 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
               @if (b.list) {
                 <a class="event" routerLink="/mercado">🧺 <strong>{{ b.list.title }}</strong> · {{ b.list.items.length }} productos <span class="go">Abrir →</span></a>
               }
+              @if (b.saved) {
+                <a class="event" [routerLink]="['/recetas/mias', b.saved.id]">📒 Guardé «<strong>{{ b.saved.title }}</strong>» en Mis recetas <span class="go">Ver →</span></a>
+              }
+              @if (b.plan) {
+                <a class="event" [routerLink]="['/planes', b.plan.id]">🗓️ Plan «<strong>{{ b.plan.title }}</strong>» · {{ b.plan.days }} {{ b.plan.days === 1 ? 'día' : 'días' }} <span class="go">Abrir →</span></a>
+              }
+              @if (b.favorite) {
+                <a class="event" [routerLink]="['/recetas', b.favorite.slug]">❤️ «<strong>{{ b.favorite.title }}</strong>» en tus favoritas <span class="go">Ver →</span></a>
+              }
             }
           }
         }
@@ -115,6 +127,7 @@ const CONVERSATION_KEY = LOCAL_KEYS.conversation;
     .chip-btn:nth-child(2) { animation-delay: 0.05s; }
     .chip-btn:nth-child(3) { animation-delay: 0.1s; }
     .chip-btn:nth-child(4) { animation-delay: 0.15s; }
+    .chip-btn:nth-child(n + 5) { animation-delay: 0.2s; }
     .chip-btn:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); background: var(--brand-soft); }
     .chip-btn:active { transform: scale(0.96); }
     .chip-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
@@ -175,6 +188,8 @@ export class Chat implements OnInit, OnDestroy {
     'Quiero hacer un ajiaco para 4',
     'Algo ligero para la cena',
     'Hazme la lista de mercado para un sancocho',
+    'Invéntame algo con lo que tengo en la nevera',
+    'Arma mi plan saludable de la semana',
   ];
 
   protected readonly faceState = computed<AvatarState>(() =>
@@ -363,6 +378,15 @@ export class Chat implements OnInit, OnDestroy {
         break;
       case 'shopping_list':
         this.bubbles.update((b) => [...b, { role: 'event', list: e.data }]);
+        break;
+      case 'saved_recipe':
+        this.bubbles.update((b) => [...b, { role: 'event', saved: e.data }]);
+        break;
+      case 'meal_plan':
+        this.bubbles.update((b) => [...b, { role: 'event', plan: e.data }]);
+        break;
+      case 'favorite':
+        this.bubbles.update((b) => [...b, { role: 'event', favorite: e.data }]);
         break;
       case 'error':
         this.bubbles.update((b) => [...b, { role: 'assistant', text: e.data.message, error: true }]);

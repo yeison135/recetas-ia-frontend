@@ -14,7 +14,12 @@ export interface Profile {
   city: string | null;
   regionPreference: string | null;
   avatar: string;
+  dietType?: DietType;
+  goal?: Goal;
 }
+
+export type DietType = 'OMNIVORE' | 'VEGETARIAN' | 'VEGAN' | 'PESCATARIAN';
+export type Goal = 'NONE' | 'HEALTHY' | 'LOSE_WEIGHT' | 'GAIN_MUSCLE' | 'MORE_ENERGY';
 
 export interface Allergy {
   id: string;
@@ -142,3 +147,56 @@ export const ALLERGENS: { code: string; label: string }[] = [
 
 export const DIFFICULTY_LABEL: Record<string, string> = { EASY: 'Fácil', MEDIUM: 'Media', HARD: 'Difícil' };
 export const COST_LABEL: Record<string, string> = { LOW: '$', MEDIUM: '$$', HIGH: '$$$' };
+
+/** Condiciones de salud (dato sensible: requiere la autorización HEALTH_DATA, igual que las alergias). */
+export const HEALTH_CONDITIONS: { code: string; label: string }[] = [
+  { code: 'DIABETES', label: 'Diabetes' },
+  { code: 'HIPERTENSION', label: 'Hipertensión' },
+  { code: 'COLESTEROL', label: 'Colesterol alto' },
+  { code: 'RENAL', label: 'Enfermedad renal' },
+  { code: 'GASTRITIS', label: 'Gastritis' },
+  { code: 'EMBARAZO', label: 'Embarazo' },
+];
+
+export interface UserRecipeIngredient {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+}
+
+/** Receta propia: inventada por la asistente o escrita por la persona. */
+export interface UserRecipe {
+  id: string;
+  title: string;
+  summary: string | null;
+  servings: number;
+  minutes: number | null;
+  ingredients: UserRecipeIngredient[];
+  steps: string[];
+  tags: string[];
+  source: 'ASSISTANT' | 'USER';
+  createdAt: string;
+}
+
+export type NewRecipe = Omit<UserRecipe, 'id' | 'source' | 'createdAt'>;
+
+export interface MealPlanSummary {
+  id: string;
+  title: string;
+  days: number;
+  createdAt: string;
+}
+
+export interface Meal {
+  moment: string;
+  dish: string;
+  note: string | null;
+}
+
+export interface MealPlan {
+  id: string;
+  title: string;
+  notes: string | null;
+  days: { day: string; meals: Meal[] }[];
+  createdAt: string;
+}

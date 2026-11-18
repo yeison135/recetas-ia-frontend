@@ -4,7 +4,7 @@ import { AuthService } from './auth';
 import { API_BASE, isUuid } from './config';
 
 export interface ChatStreamEvent {
-  type: 'tool' | 'recipe' | 'timer' | 'shopping_list' | 'text' | 'done' | 'error';
+  type: 'tool' | 'recipe' | 'timer' | 'shopping_list' | 'saved_recipe' | 'meal_plan' | 'favorite' | 'text' | 'done' | 'error';
   data: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 

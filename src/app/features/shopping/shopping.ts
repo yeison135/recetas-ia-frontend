@@ -5,10 +5,12 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { kitchenQuantity } from '../../core/format';
 import { ShoppingItem, ShoppingList, Store } from '../../core/models';
+import { shoppingListText } from '../../core/share';
+import { ShareButtons } from '../../shared/share-buttons';
 
 @Component({
   selector: 'app-shopping',
-  imports: [DatePipe],
+  imports: [DatePipe, ShareButtons],
   template: `
     <div class="page stack">
       <header class="page-head enter">
@@ -53,6 +55,7 @@ import { ShoppingItem, ShoppingList, Store } from '../../core/models';
               </li>
             }
           </ul>
+          <app-share-buttons [subject]="l.title" [text]="shareText(l)" />
         </section>
       }
 
@@ -144,6 +147,10 @@ export class Shopping implements OnInit {
 
   protected pending(l: ShoppingList): number {
     return l.items.filter((i) => !i.checked).length;
+  }
+
+  protected shareText(l: ShoppingList): string {
+    return shoppingListText(l);
   }
 
   protected qty(i: ShoppingItem): string {

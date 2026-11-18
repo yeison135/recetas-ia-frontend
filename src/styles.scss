@@ -215,6 +215,113 @@ a {
   }
 }
 
+/* Enlace para volver: <a class="back"><span aria-hidden="true">←</span> Recetas</a> */
+.back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px 0 6px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  color: var(--text);
+  transition: background-color 0.15s;
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--brand);
+  }
+
+  &:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* Estado vacío: <div class="card empty-state"><span class="emo" aria-hidden="true">🥄</span><p>…</p></div> */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 28px 16px;
+
+  .emo {
+    font-size: 2.4rem;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+/* Lista de ingredientes con la cantidad en una columna. */
+.ingredients {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+
+  li {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  li:last-child {
+    border-bottom: 0;
+  }
+
+  .qty {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--brand-strong);
+  }
+}
+
+/* Pasos numerados: <ol class="steps"><li class="card"><span class="num">1</span><div><p>…</p></div></li></ol> */
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .num {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+
+  li p {
+    margin: 4px 0 8px;
+  }
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);

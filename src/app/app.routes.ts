@@ -12,6 +12,16 @@ export const routes: Routes = [
       { path: 'cocina', loadComponent: () => import('./features/chat/chat').then((m) => m.Chat), title: 'Cocina · La Sazón' },
       { path: 'recetas', loadComponent: () => import('./features/recipes/recipes').then((m) => m.Recipes), title: 'Recetas · La Sazón' },
       {
+        path: 'recetas/mias/:id',
+        loadComponent: () => import('./features/recipes/user-recipe').then((m) => m.UserRecipePage),
+        title: 'Mi receta · La Sazón',
+      },
+      {
+        path: 'planes/:id',
+        loadComponent: () => import('./features/plans/plan-detail').then((m) => m.PlanDetailPage),
+        title: 'Plan de comidas · La Sazón',
+      },
+      {
         path: 'recetas/:slug',
         loadComponent: () => import('./features/recipes/recipe-detail').then((m) => m.RecipeDetailPage),
         title: 'Receta · La Sazón',
